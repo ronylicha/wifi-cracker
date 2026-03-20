@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.People
@@ -157,6 +158,15 @@ fun MainDashboard() {
                 composable("about") {
                     AboutScreen(onBack = { navController.popBackStack() })
                 }
+                composable("settings") {
+                    SettingsScreen(onBack = { navController.popBackStack() })
+                }
+                composable("vuln_database") {
+                    VulnDatabaseScreen(onBack = { navController.popBackStack() })
+                }
+                composable("audit_log") {
+                    AuditLogScreen(onBack = { navController.popBackStack() })
+                }
             }
         }
     }
@@ -210,7 +220,12 @@ private fun DrawerContent(onNavigate: (String) -> Unit) {
         DrawerItem(
             icon = Icons.Default.Security,
             label = stringResource(R.string.vuln_database),
-            onClick = { /* TODO: VulnDB browser screen */ },
+            onClick = { onNavigate("vuln_database") },
+        )
+        DrawerItem(
+            icon = Icons.Default.History,
+            label = stringResource(R.string.audit_log),
+            onClick = { onNavigate("audit_log") },
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -219,6 +234,11 @@ private fun DrawerContent(onNavigate: (String) -> Unit) {
             icon = Icons.Default.Info,
             label = stringResource(R.string.about),
             onClick = { onNavigate("about") },
+        )
+        DrawerItem(
+            icon = Icons.Default.Settings,
+            label = stringResource(R.string.settings),
+            onClick = { onNavigate("settings") },
         )
     }
 }

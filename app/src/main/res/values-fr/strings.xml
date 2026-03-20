@@ -20,4 +20,18 @@
     <string name="drawer_version">v1.0.0</string>
     <string name="about_description">Outil professionnel d\'audit de securite WiFi pour tests d\'intrusion autorises.</string>
     <string name="about_license">Open Source - Licence MIT</string>
+    <string name="settings_appearance">Apparence</string>
+    <string name="settings_dark_theme">Theme sombre</string>
+    <string name="settings_dark_theme_desc">Utiliser le theme de couleurs sombre</string>
+    <string name="settings_language">Langue</string>
+    <string name="settings_info">Informations</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_root_status">Statut root</string>
+    <string name="settings_root_detected">Root detecte</string>
+    <string name="vuln_search">Chercher CVE, protocole, titre...</string>
+    <string name="audit_export">Exporter JSON</string>
+    <string name="audit_purge">Purger</string>
+    <string name="audit_purge_confirm">Supprimer toutes les entrees du journal ?</string>
+    <string name="audit_cancel">Annuler</string>
+    <string name="audit_empty">Aucune entree dans le journal</string>
 </resources>

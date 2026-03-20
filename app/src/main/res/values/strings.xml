@@ -20,4 +20,18 @@
     <string name="drawer_version">v1.0.0</string>
     <string name="about_description">Professional WiFi security auditing tool for authorized penetration testing.</string>
     <string name="about_license">Open Source - MIT License</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_dark_theme">Dark Theme</string>
+    <string name="settings_dark_theme_desc">Use dark color scheme</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_info">Information</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_root_status">Root Status</string>
+    <string name="settings_root_detected">Root detected</string>
+    <string name="vuln_search">Search CVE, protocol, title...</string>
+    <string name="audit_export">Export JSON</string>
+    <string name="audit_purge">Purge</string>
+    <string name="audit_purge_confirm">Delete all audit log entries?</string>
+    <string name="audit_cancel">Cancel</string>
+    <string name="audit_empty">No audit entries yet</string>
 </resources>
