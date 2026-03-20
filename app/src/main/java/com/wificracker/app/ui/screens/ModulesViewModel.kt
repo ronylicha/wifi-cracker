@@ -110,39 +110,47 @@ class ModulesViewModel @Inject constructor(
 
     private fun installTermuxPackages(packages: List<String>) {
         val termuxPkg = "/data/data/com.termux/files/usr/bin/pkg"
-        val termuxApt = "/data/data/com.termux/files/usr/bin/apt"
 
         // Check if Termux is available
         val termuxCheck = shellExecutor.executeAsRoot("test -x $termuxPkg && echo found")
         if (!termuxCheck.stdout.contains("found")) {
-            appendLog("  Termux not found. Trying alternative methods...")
+            appendLog("  Termux not found. Install Termux from F-Droid first.")
             return
         }
 
-        // Update package list
-        appendLog("  Updating Termux package list...")
-        shellExecutor.executeAsRoot(
-            "HOME=/data/data/com.termux/files/home " +
+        // Get Termux UID to run as Termux user (pkg/apt refuse root)
+        val uidResult = shellExecutor.executeAsRoot("stat -c '%U' /data/data/com.termux/files/usr/bin/pkg")
+        val termuxUser = uidResult.stdout.trim().ifBlank { "u0_a373" }
+
+        val termuxEnv = "HOME=/data/data/com.termux/files/home " +
             "PREFIX=/data/data/com.termux/files/usr " +
             "LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib " +
-            "$termuxPkg update -y 2>&1",
+            "TMPDIR=/data/data/com.termux/files/usr/tmp " +
+            "PATH=/data/data/com.termux/files/usr/bin"
+
+        // Update repos first
+        appendLog("  Updating Termux repos...")
+        val updateResult = shellExecutor.executeAsRoot(
+            "su $termuxUser -c '$termuxEnv /data/data/com.termux/files/usr/bin/apt update -y 2>&1'",
             timeoutSeconds = 120,
         )
+        if (!updateResult.isSuccess) {
+            appendLog("  ✗ Repo update failed. Open Termux manually and run: termux-change-repo")
+            appendLog("  Then select a working mirror and retry.")
+            return
+        }
 
-        // Install each package
+        // Install each package as Termux user
         for (pkg in packages) {
-            appendLog("  Installing package: $pkg")
+            appendLog("  Installing: $pkg")
             val result = shellExecutor.executeAsRoot(
-                "HOME=/data/data/com.termux/files/home " +
-                "PREFIX=/data/data/com.termux/files/usr " +
-                "LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib " +
-                "$termuxApt install -y $pkg 2>&1",
-                timeoutSeconds = 180,
+                "su $termuxUser -c '$termuxEnv /data/data/com.termux/files/usr/bin/apt install -y $pkg 2>&1'",
+                timeoutSeconds = 300,
             )
-            if (result.isSuccess) {
-                appendLog("  ✓ $pkg installed in Termux")
+            if (result.isSuccess && !result.stdout.contains("Unable to locate")) {
+                appendLog("  ✓ $pkg installed")
             } else {
-                appendLog("  ✗ $pkg failed: ${result.stderr.take(100)}")
+                appendLog("  ✗ $pkg failed — may not be in Termux repos")
             }
         }
     }
