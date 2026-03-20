@@ -17,6 +17,8 @@ data class ChipsetMonitorCapability(
     val chipName: String,
     val supportsInternalMonitor: Boolean,
     val monitorMethod: String,
+    val requiresPatch: Boolean = false,
+    val patchInstalled: Boolean = false,
 )
 
 @Singleton
@@ -52,11 +54,15 @@ class ChipsetMonitorHelper @Inject constructor(
         // Check MediaTek
         val mtk = shellExecutor.executeAsRoot("getprop ro.vendor.wlan.gen").stdout.trim()
         if (mtk.isNotBlank()) {
+            val patchCheck = shellExecutor.executeAsRoot("sha256sum /vendor/lib/modules/wlan_drv_gen4m_6878.ko")
+            val isPatched = patchCheck.stdout.contains("aaead92bedc1e69f2642aaa54cb0a314ec3d28fec8781bf2263f4e203310534a")
             return ChipsetMonitorCapability(
                 vendor = WifiChipVendor.MEDIATEK,
                 chipName = "MediaTek $mtk",
-                supportsInternalMonitor = false,
-                monitorMethod = "Not supported (firmware locked)",
+                supportsInternalMonitor = isPatched,
+                monitorMethod = if (isPatched) "MTK ICS capture (patched driver)" else "Not supported (firmware locked)",
+                requiresPatch = !isPatched,
+                patchInstalled = isPatched,
             )
         }
 
@@ -69,7 +75,7 @@ class ChipsetMonitorHelper @Inject constructor(
         return when (capability.vendor) {
             WifiChipVendor.QUALCOMM -> enableQualcommMonitor(interfaceName)
             WifiChipVendor.BROADCOM -> enableBroadcomMonitor(interfaceName)
-            WifiChipVendor.MEDIATEK -> ShellResult(-1, "", "MediaTek internal WiFi does not support monitor mode. Use an external USB WiFi adapter.")
+            WifiChipVendor.MEDIATEK -> enableMediatekMonitor(interfaceName)
             WifiChipVendor.UNKNOWN -> enableGenericMonitor(interfaceName)
         }
     }
@@ -80,7 +86,8 @@ class ChipsetMonitorHelper @Inject constructor(
         return when (capability.vendor) {
             WifiChipVendor.QUALCOMM -> disableQualcommMonitor(interfaceName)
             WifiChipVendor.BROADCOM -> disableBroadcomMonitor(interfaceName)
-            else -> disableGenericMonitor(interfaceName)
+            WifiChipVendor.MEDIATEK -> disableMediatekMonitor(interfaceName)
+            WifiChipVendor.UNKNOWN -> disableGenericMonitor(interfaceName)
         }
     }
 
@@ -130,6 +137,26 @@ class ChipsetMonitorHelper @Inject constructor(
             return executeSteps(steps)
         }
         return disableGenericMonitor(interfaceName)
+    }
+
+    private fun enableMediatekMonitor(interfaceName: String): ShellResult {
+        val capability = detectChipVendor()
+        if (!capability.patchInstalled) {
+            return ShellResult(-1, "", "MediaTek monitor mode requires the patched driver. Install the mtk_wifi_monitor Magisk module and reboot.")
+        }
+        // MTK patched driver: SNIFFER command + ICS enable
+        val steps = listOf(
+            "/data/local/tmp/wpa_driver \"SNIFFER 2 0 0 0 0 0 0 0 0 0\"",
+            "/data/local/tmp/ics_enable 1",
+        )
+        return executeSteps(steps)
+    }
+
+    private fun disableMediatekMonitor(interfaceName: String): ShellResult {
+        val steps = listOf(
+            "/data/local/tmp/ics_enable 0",
+        )
+        return executeSteps(steps)
     }
 
     private fun enableGenericMonitor(interfaceName: String): ShellResult {
