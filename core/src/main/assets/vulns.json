@@ -1,0 +1,7 @@
+[
+  {"cveId":"CVE-2017-13077","protocol":"WPA2","title":"KRACK - Key Reinstallation Attack","description":"Vulnerability in the WPA2 4-way handshake allowing key reinstallation.","severity":"CRITICAL","cvssScore":9.8,"recommendation":"Update firmware. Consider WPA3.","affectedVersions":"WPA2 before Oct 2017"},
+  {"cveId":"CVE-2019-15126","protocol":"WPA2","title":"Kr00k - WiFi Encryption Vulnerability","description":"Broadcom/Cypress chips encrypt with all-zero key after disassociation.","severity":"HIGH","cvssScore":7.5,"recommendation":"Update device firmware.","affectedVersions":"Broadcom/Cypress before 2020"},
+  {"cveId":"CVE-2020-24588","protocol":"WPA3","title":"FragAttacks - Aggregation Attack","description":"802.11 frame aggregation design flaw.","severity":"MEDIUM","cvssScore":6.5,"recommendation":"Update firmware.","affectedVersions":"All WiFi devices"},
+  {"cveId":"CVE-2024-30078","protocol":"WPA2","title":"Windows WiFi Driver RCE","description":"RCE via crafted WiFi packets on Windows.","severity":"CRITICAL","cvssScore":9.8,"recommendation":"Apply KB5039212.","affectedVersions":"Windows 10/11 before June 2024"},
+  {"cveId":"WEP-DEPRECATED","protocol":"WEP","title":"WEP Protocol Deprecated","description":"WEP is fundamentally broken.","severity":"CRITICAL","cvssScore":10.0,"recommendation":"Migrate to WPA3-SAE.","affectedVersions":"All WEP"}
+]
