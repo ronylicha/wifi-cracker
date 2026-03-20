@@ -3,6 +3,7 @@ package com.wificracker.scan.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wificracker.core.wifi.InterfaceManager
+import com.wificracker.core.wifi.MonitorModeManager
 import com.wificracker.core.wifi.WifiInterface
 import com.wificracker.scan.domain.NetworkAnalyzer
 import com.wificracker.scan.domain.ScanEngine
@@ -29,6 +30,8 @@ data class ScanUiState(
     val vulnMatches: Map<String, List<VulnMatch>> = emptyMap(),
     val isScanning: Boolean = false,
     val errorMessage: String? = null,
+    val chipsetInfo: String = "",
+    val supportsInternalMonitor: Boolean = false,
 )
 
 @HiltViewModel
@@ -37,6 +40,7 @@ class ScanViewModel @Inject constructor(
     private val interfaceManager: InterfaceManager,
     private val vulnMatcher: VulnMatcher,
     private val networkAnalyzer: NetworkAnalyzer,
+    private val monitorModeManager: MonitorModeManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ScanUiState())
@@ -45,6 +49,17 @@ class ScanViewModel @Inject constructor(
     init {
         loadInterfaces()
         observeScanState()
+        detectChipset()
+    }
+
+    private fun detectChipset() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val chipInfo = monitorModeManager.getChipsetInfo()
+            _uiState.value = _uiState.value.copy(
+                chipsetInfo = "${chipInfo.vendor.label}: ${chipInfo.chipName}",
+                supportsInternalMonitor = chipInfo.supportsInternalMonitor,
+            )
+        }
     }
 
     private fun loadInterfaces() {

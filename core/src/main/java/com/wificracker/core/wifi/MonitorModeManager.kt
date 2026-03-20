@@ -6,9 +6,24 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class MonitorModeManager @Inject constructor(private val shellExecutor: ShellExecutor) {
-    fun enableMonitorMode(interfaceName: String): ShellResult = executeSteps(listOf("ip link set $interfaceName down", "iw dev $interfaceName set type monitor", "ip link set $interfaceName up"))
-    fun disableMonitorMode(interfaceName: String): ShellResult = executeSteps(listOf("ip link set $interfaceName down", "iw dev $interfaceName set type managed", "ip link set $interfaceName up"))
-    fun isMonitorMode(interfaceName: String): Boolean { val r = shellExecutor.executeAsRoot("iw dev $interfaceName info"); return r.isSuccess && r.stdout.contains("type monitor") }
-    private fun executeSteps(steps: List<String>): ShellResult { for (s in steps) { val r = shellExecutor.executeAsRoot(s); if (!r.isSuccess) return r }; return ShellResult(0, "OK", "") }
+class MonitorModeManager @Inject constructor(
+    private val shellExecutor: ShellExecutor,
+    private val chipsetMonitorHelper: ChipsetMonitorHelper,
+) {
+    fun enableMonitorMode(interfaceName: String): ShellResult {
+        return chipsetMonitorHelper.enableMonitorMode(interfaceName)
+    }
+
+    fun disableMonitorMode(interfaceName: String): ShellResult {
+        return chipsetMonitorHelper.disableMonitorMode(interfaceName)
+    }
+
+    fun isMonitorMode(interfaceName: String): Boolean {
+        val result = shellExecutor.executeAsRoot("iw dev $interfaceName info 2>/dev/null || cat /sys/class/net/$interfaceName/type 2>/dev/null")
+        return result.isSuccess && (result.stdout.contains("type monitor") || result.stdout.trim() == "803")
+    }
+
+    fun getChipsetInfo(): ChipsetMonitorCapability {
+        return chipsetMonitorHelper.detectChipVendor()
+    }
 }

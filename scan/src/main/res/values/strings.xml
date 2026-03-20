@@ -17,4 +17,7 @@
     <string name="network_clients">Connected Clients (%d)</string>
     <string name="network_launch_attack">Launch Attack</string>
     <string name="scan_back">Back</string>
+    <string name="scan_chipset">Chipset</string>
+    <string name="scan_monitor_supported">Internal monitor mode supported</string>
+    <string name="scan_monitor_not_supported">Internal monitor not supported - use USB adapter</string>
 </resources>
