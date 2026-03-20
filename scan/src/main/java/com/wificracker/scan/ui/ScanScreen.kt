@@ -91,36 +91,30 @@ fun ScanScreen(
             }
         },
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            // Interface selector + scan info
-            ScanHeader(
-                state = state,
-                onInterfaceSelected = viewModel::selectInterface,
-                onExportClick = viewModel::exportPcap,
-            )
-
-            // Network list
-            if (state.scanResult.networks.isEmpty() && !state.isScanning) {
+        if (state.scanResult.networks.isEmpty() && !state.isScanning) {
+            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                ScanHeader(state = state, onInterfaceSelected = viewModel::selectInterface, onExportClick = viewModel::exportPcap)
                 EmptyState(hasInterfaces = state.interfaces.isNotEmpty())
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(
-                        items = state.scanResult.networks.sortedByDescending { it.signalStrength },
-                        key = { it.bssid },
-                    ) { network ->
-                        NetworkCard(
-                            network = network,
-                            vulnCount = state.vulnMatches[network.bssid]?.size ?: 0,
-                            onClick = { onNetworkClick(network.bssid) },
-                        )
-                    }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = PaddingValues(bottom = 80.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item {
+                    ScanHeader(state = state, onInterfaceSelected = viewModel::selectInterface, onExportClick = viewModel::exportPcap)
+                }
+                items(
+                    items = state.scanResult.networks.sortedByDescending { it.signalStrength },
+                    key = { it.bssid },
+                ) { network ->
+                    NetworkCard(
+                        network = network,
+                        vulnCount = state.vulnMatches[network.bssid]?.size ?: 0,
+                        onClick = { onNetworkClick(network.bssid) },
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
                 }
             }
         }
