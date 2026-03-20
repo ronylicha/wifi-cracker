@@ -1,0 +1,100 @@
+package com.wificracker.scan.ui
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.wificracker.core.wifi.InterfaceManager
+import com.wificracker.core.wifi.WifiInterface
+import com.wificracker.scan.domain.NetworkAnalyzer
+import com.wificracker.scan.domain.ScanEngine
+import com.wificracker.scan.domain.VulnMatcher
+import com.wificracker.scan.model.Network
+import com.wificracker.scan.model.ScanResult
+import com.wificracker.scan.model.ScanStatus
+import com.wificracker.scan.model.VulnMatch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class ScanUiState(
+    val scanResult: ScanResult = ScanResult(),
+    val interfaces: List<WifiInterface> = emptyList(),
+    val selectedInterface: WifiInterface? = null,
+    val vulnMatches: Map<String, List<VulnMatch>> = emptyMap(),
+    val isScanning: Boolean = false,
+    val errorMessage: String? = null,
+)
+
+@HiltViewModel
+class ScanViewModel @Inject constructor(
+    private val scanEngine: ScanEngine,
+    private val interfaceManager: InterfaceManager,
+    private val vulnMatcher: VulnMatcher,
+    private val networkAnalyzer: NetworkAnalyzer,
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(ScanUiState())
+    val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
+
+    init {
+        loadInterfaces()
+        observeScanState()
+    }
+
+    private fun loadInterfaces() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val interfaces = interfaceManager.listInterfaces()
+            val monitorCapable = interfaces.filter { it.supportsMonitor }
+            _uiState.value = _uiState.value.copy(
+                interfaces = monitorCapable,
+                selectedInterface = monitorCapable.firstOrNull(),
+            )
+        }
+    }
+
+    private fun observeScanState() {
+        viewModelScope.launch {
+            scanEngine.scanState.collect { scanResult ->
+                _uiState.value = _uiState.value.copy(
+                    scanResult = scanResult,
+                    isScanning = scanResult.status == ScanStatus.SCANNING,
+                )
+                // Match vulns for discovered networks
+                if (scanResult.networks.isNotEmpty()) {
+                    launch(Dispatchers.IO) {
+                        val matches = vulnMatcher.matchAllNetworks(scanResult.networks)
+                        _uiState.value = _uiState.value.copy(vulnMatches = matches)
+                    }
+                }
+            }
+        }
+    }
+
+    fun selectInterface(iface: WifiInterface) {
+        _uiState.value = _uiState.value.copy(selectedInterface = iface)
+    }
+
+    fun startScan() {
+        val iface = _uiState.value.selectedInterface ?: return
+        _uiState.value = _uiState.value.copy(errorMessage = null)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                scanEngine.startScan(iface.name)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = e.message)
+            }
+        }
+    }
+
+    fun stopScan() {
+        viewModelScope.launch(Dispatchers.IO) {
+            scanEngine.stopScan()
+        }
+    }
+}
