@@ -3,6 +3,8 @@ package com.wificracker.report.ui
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wificracker.report.data.dao.ClientProfileDao
+import com.wificracker.report.data.entity.ClientProfileEntity
 import com.wificracker.report.domain.ExportManager
 import com.wificracker.report.domain.ReportGenerator
 import com.wificracker.report.model.*
@@ -25,6 +27,8 @@ data class ReportUiState(
     val exportedPath: String = "",
     val isGenerating: Boolean = false,
     val step: ReportStep = ReportStep.MISSION_INFO,
+    val savedClients: List<ClientProfileEntity> = emptyList(),
+    val selectedClientId: Long = 0,
 )
 
 enum class ReportStep { MISSION_INFO, FINDINGS, PREVIEW, EXPORT }
@@ -33,10 +37,19 @@ enum class ReportStep { MISSION_INFO, FINDINGS, PREVIEW, EXPORT }
 class ReportViewModel @Inject constructor(
     private val reportGenerator: ReportGenerator,
     private val exportManager: ExportManager,
+    private val clientProfileDao: ClientProfileDao,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ReportUiState())
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            clientProfileDao.getAllClients().collect { clients ->
+                _uiState.value = _uiState.value.copy(savedClients = clients)
+            }
+        }
+    }
 
     fun updateCompanyProfile(profile: CompanyProfile) { _uiState.value = _uiState.value.copy(companyProfile = profile) }
     fun updateClientProfile(profile: ClientProfile) { _uiState.value = _uiState.value.copy(clientProfile = profile) }
@@ -45,6 +58,21 @@ class ReportViewModel @Inject constructor(
     fun removeFinding(id: String) { _uiState.value = _uiState.value.copy(findings = _uiState.value.findings.filter { it.id != id }) }
     fun nextStep() { val next = ReportStep.entries.getOrNull((_uiState.value.step.ordinal + 1))  ?: return; _uiState.value = _uiState.value.copy(step = next) }
     fun prevStep() { val prev = ReportStep.entries.getOrNull((_uiState.value.step.ordinal - 1))  ?: return; _uiState.value = _uiState.value.copy(step = prev) }
+
+    fun selectClient(client: ClientProfileEntity) {
+        _uiState.value = _uiState.value.copy(
+            selectedClientId = client.id,
+            clientProfile = ClientProfile(
+                companyName = client.companyName,
+                address = client.address,
+                contactName = client.contactName,
+                contactTitle = client.contactTitle,
+                contactEmail = client.contactEmail,
+                contractReference = client.contractReference,
+                logoPath = client.logoPath,
+            ),
+        )
+    }
 
     fun generateReport() {
         _uiState.value = _uiState.value.copy(isGenerating = true)

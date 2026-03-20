@@ -1,6 +1,8 @@
 package com.wificracker.report.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
@@ -37,7 +39,7 @@ fun ReportDashboard(viewModel: ReportViewModel = hiltViewModel()) {
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState())) {
             when (state.step) {
                 ReportStep.MISSION_INFO -> MissionInfoStep(state, viewModel)
                 ReportStep.FINDINGS -> FindingsStep(state, viewModel)
@@ -60,6 +62,34 @@ private fun MissionInfoStep(state: ReportUiState, viewModel: ReportViewModel) {
         OutlinedTextField(value = state.companyProfile.contactEmail, onValueChange = { viewModel.updateCompanyProfile(state.companyProfile.copy(contactEmail = it)) }, label = { Text(stringResource(R.string.report_contact_email)) }, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(8.dp))
         Text(stringResource(R.string.report_client), style = MaterialTheme.typography.titleMedium)
+
+        if (state.savedClients.isNotEmpty()) {
+            var clientExpanded by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(
+                    onClick = { clientExpanded = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        if (state.selectedClientId > 0)
+                            state.savedClients.find { it.id == state.selectedClientId }?.companyName ?: stringResource(R.string.report_select_client)
+                        else stringResource(R.string.report_select_client)
+                    )
+                }
+                DropdownMenu(expanded = clientExpanded, onDismissRequest = { clientExpanded = false }) {
+                    state.savedClients.forEach { client ->
+                        DropdownMenuItem(
+                            text = { Text(client.companyName) },
+                            onClick = { viewModel.selectClient(client); clientExpanded = false },
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Text(stringResource(R.string.report_or_manual), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
         OutlinedTextField(value = state.clientProfile.companyName, onValueChange = { viewModel.updateClientProfile(state.clientProfile.copy(companyName = it)) }, label = { Text(stringResource(R.string.report_client_company)) }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = state.clientProfile.contactName, onValueChange = { viewModel.updateClientProfile(state.clientProfile.copy(contactName = it)) }, label = { Text(stringResource(R.string.report_client_contact)) }, modifier = Modifier.fillMaxWidth())
     }

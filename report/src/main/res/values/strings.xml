@@ -46,4 +46,6 @@
     <string name="profile_delete_client">Delete</string>
     <string name="profile_delete_confirm">Delete this client?</string>
     <string name="profile_no_clients">No clients saved yet</string>
+    <string name="report_select_client">Select a saved client</string>
+    <string name="report_or_manual">Or enter client details manually:</string>
 </resources>

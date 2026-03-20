@@ -46,4 +46,6 @@
     <string name="profile_delete_client">Supprimer</string>
     <string name="profile_delete_confirm">Supprimer ce client ?</string>
     <string name="profile_no_clients">Aucun client enregistre</string>
+    <string name="report_select_client">Selectionner un client enregistre</string>
+    <string name="report_or_manual">Ou saisir les informations manuellement :</string>
 </resources>
