@@ -13,3 +13,4 @@
 *.aab
 *.env
 /core/schemas
+/scan/build

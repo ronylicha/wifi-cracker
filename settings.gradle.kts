@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "WifiCracker"
 include(":app")
 include(":core")
+include(":scan")
