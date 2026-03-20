@@ -1,7 +1,762 @@
 [
-  {"cveId":"CVE-2017-13077","protocol":"WPA2","title":"KRACK - Key Reinstallation Attack","description":"Vulnerability in the WPA2 4-way handshake allowing key reinstallation.","severity":"CRITICAL","cvssScore":9.8,"recommendation":"Update firmware. Consider WPA3.","affectedVersions":"WPA2 before Oct 2017"},
-  {"cveId":"CVE-2019-15126","protocol":"WPA2","title":"Kr00k - WiFi Encryption Vulnerability","description":"Broadcom/Cypress chips encrypt with all-zero key after disassociation.","severity":"HIGH","cvssScore":7.5,"recommendation":"Update device firmware.","affectedVersions":"Broadcom/Cypress before 2020"},
-  {"cveId":"CVE-2020-24588","protocol":"WPA3","title":"FragAttacks - Aggregation Attack","description":"802.11 frame aggregation design flaw.","severity":"MEDIUM","cvssScore":6.5,"recommendation":"Update firmware.","affectedVersions":"All WiFi devices"},
-  {"cveId":"CVE-2024-30078","protocol":"WPA2","title":"Windows WiFi Driver RCE","description":"RCE via crafted WiFi packets on Windows.","severity":"CRITICAL","cvssScore":9.8,"recommendation":"Apply KB5039212.","affectedVersions":"Windows 10/11 before June 2024"},
-  {"cveId":"WEP-DEPRECATED","protocol":"WEP","title":"WEP Protocol Deprecated","description":"WEP is fundamentally broken.","severity":"CRITICAL","cvssScore":10.0,"recommendation":"Migrate to WPA3-SAE.","affectedVersions":"All WEP"}
+  {
+    "cveId": "WEP-FMS-ATTACK",
+    "protocol": "WEP",
+    "title": "FMS Attack - Fluhrer-Mantin-Shamir RC4 Key Recovery",
+    "description": "Statistical attack against WEP's RC4 key scheduling algorithm discovered by Fluhrer, Mantin, and Shamir in 2001. By collecting large numbers of IVs (Initialization Vectors), an attacker can statistically derive the WEP key. With enough packets (typically 40,000–100,000 IVs), the key can be recovered in minutes using tools like Aircrack-ng.",
+    "severity": "CRITICAL",
+    "cvssScore": 10.0,
+    "recommendation": "Immediately disable WEP. Migrate to WPA2-AES or WPA3-SAE. WEP is fundamentally broken and no patch exists.",
+    "affectedVersions": "All WEP implementations"
+  },
+  {
+    "cveId": "WEP-PTW-ATTACK",
+    "protocol": "WEP",
+    "title": "PTW Attack - Pychkine-Tews-Weinmann RC4 Optimized Attack",
+    "description": "Improved WEP cracking attack by Pychkine, Tews, and Weinmann (2007) that significantly reduces the number of packets required to break WEP. Unlike FMS, PTW can recover a 104-bit WEP key with as few as 20,000–40,000 data packets by exploiting correlations in the first bytes of RC4 keystream. Implemented in Aircrack-ng as the default method.",
+    "severity": "CRITICAL",
+    "cvssScore": 10.0,
+    "recommendation": "Disable WEP immediately. No mitigation exists. Upgrade to WPA2 or WPA3.",
+    "affectedVersions": "All WEP (40-bit and 104-bit key lengths)"
+  },
+  {
+    "cveId": "WEP-CHOPCHOP-ATTACK",
+    "protocol": "WEP",
+    "title": "WEP ChopChop Attack - Plaintext Recovery Without Key",
+    "description": "Korek's ChopChop attack (2004) allows an attacker to decrypt a WEP packet without knowing the WEP key by exploiting the CRC32 integrity check weakness. The attacker strips one byte at a time from an encrypted packet and re-injects guessed versions, using the AP's accept/reject responses as an oracle. The full plaintext can be recovered and then used to inject arbitrary frames.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.3,
+    "recommendation": "Disable WEP. No fix is possible for this design flaw. Use WPA2-AES minimum.",
+    "affectedVersions": "All WEP access points without specific chopchop countermeasures"
+  },
+  {
+    "cveId": "WEP-FRAGMENTATION-ATTACK",
+    "protocol": "WEP",
+    "title": "WEP Fragmentation Attack - Arbitrary Packet Injection",
+    "description": "By capturing a single encrypted WEP packet, an attacker can use 802.11 fragmentation to recover a PRGA (Pseudo Random Generation Algorithm) keystream of arbitrary length. This keystream can then be used to encrypt and inject arbitrary packets into the network — including ARP requests for accelerating IV collection or arbitrary IP packets. Enables full traffic injection without knowing the WEP key.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.1,
+    "recommendation": "Disable WEP. Upgrade to WPA2 with AES/CCMP. WEP fragmentation attacks require no prior authentication.",
+    "affectedVersions": "All WEP implementations; most access points (requires only one captured packet)"
+  },
+  {
+    "cveId": "WEP-IV-COLLISION",
+    "protocol": "WEP",
+    "title": "WEP IV Collision - Keystream Reuse Attack",
+    "description": "WEP uses a 24-bit Initialization Vector (IV), yielding only 16 million possible values. In a busy network, IV collisions occur roughly every 5,000 packets (birthday paradox). When two packets share the same IV, XORing the ciphertexts cancels the keystream, revealing the XOR of the plaintexts. With known or guessable plaintext (e.g., HTTP headers, ARP packets), full plaintext recovery is trivial.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.0,
+    "recommendation": "Disable WEP. The short IV space is a fundamental design flaw with no workaround.",
+    "affectedVersions": "All 802.11 WEP implementations"
+  },
+  {
+    "cveId": "CVE-2017-13077",
+    "protocol": "WPA2",
+    "title": "KRACK - Key Reinstallation Attack on 4-Way Handshake",
+    "description": "Discovered by Mathy Vanhoef (2017), KRACK exploits a flaw in the WPA2 4-way handshake. When the client receives message 3 of the handshake, it installs the PTK (Pairwise Transient Key). An attacker can retransmit message 3, causing the client to reinstall an already-in-use key, resetting the nonce and replay counter. This enables nonce reuse, allowing the attacker to decrypt, replay, and forge packets. With TKIP or GCMP, full bidirectional traffic decryption and injection is possible.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Patch all WiFi clients (especially Android 6.0 which was most vulnerable). Update firmware on APs. Consider upgrading to WPA3 which is immune to KRACK.",
+    "affectedVersions": "WPA2 implementations before October 2017 patches; Android 6.0 particularly affected"
+  },
+  {
+    "cveId": "CVE-2017-13078",
+    "protocol": "WPA2",
+    "title": "KRACK - Group Key Reinstallation in 4-Way Handshake",
+    "description": "Variant of the KRACK attack targeting the Group Temporal Key (GTK) reinstallation during the 4-way handshake (message 1 of the group key handshake). By blocking and replaying the group key handshake message, an attacker can force a client to reinstall the GTK with a zeroed replay counter, enabling replay of group-addressed (broadcast/multicast) frames. Affects all WPA2 networks including those with Management Frame Protection.",
+    "severity": "HIGH",
+    "cvssScore": 8.1,
+    "recommendation": "Apply October 2017 patches for all WiFi clients and access points. Enable MFP where available.",
+    "affectedVersions": "All WPA2 clients before October 2017 patches"
+  },
+  {
+    "cveId": "CVE-2017-13080",
+    "protocol": "WPA2",
+    "title": "KRACK - Group Key Reinstallation in Group Key Handshake",
+    "description": "KRACK variant specifically targeting the periodic group key refresh handshake (2-way handshake used to rotate GTK). An attacker blocks the client's ACK to the AP's group key message 1, causing the AP to retransmit. The client reinstalls the GTK, resetting the receive replay counter, allowing previously-replayed multicast/broadcast frames to be accepted. Exploitable in all WPA2 Personal and Enterprise networks.",
+    "severity": "HIGH",
+    "cvssScore": 8.1,
+    "recommendation": "Apply OS and firmware patches from October 2017. Monitor vendor advisories for device-specific patches.",
+    "affectedVersions": "All WPA2 implementations; wpa_supplicant before 2.6-3"
+  },
+  {
+    "cveId": "CVE-2018-4975",
+    "protocol": "WPA2",
+    "title": "PMKID Attack - Clientless WPA2 PSK Cracking",
+    "description": "Discovered by Jens Steube (hashcat author) in 2018, the PMKID attack allows an attacker to capture a single PMKID (Pairwise Master Key Identifier) frame directly from the AP without capturing a full 4-way handshake — no client needs to be present. The PMKID is derived as HMAC-SHA1-128(PMK, 'PMK Name' || AP_MAC || Client_MAC). The PSK can then be brute-forced offline from a single captured EAPOL RSN IE element.",
+    "severity": "HIGH",
+    "cvssScore": 8.1,
+    "recommendation": "Use long, random WPA2 PSK (20+ chars). Upgrade to WPA3-SAE which prevents offline dictionary attacks. Disable PMKID caching if AP supports it.",
+    "affectedVersions": "All WPA2-Personal networks using PMKID caching (most modern APs)"
+  },
+  {
+    "cveId": "CVE-2012-2421",
+    "protocol": "WPA2",
+    "title": "WPA2 Hole196 - Insider GTK Attack",
+    "description": "Hole196 vulnerability in WPA2 Enterprise allows a malicious authenticated insider to decrypt other clients' unicast traffic and launch man-in-the-middle attacks. Since all clients share the same Group Temporal Key (GTK), an insider can use the GTK to forge broadcast ARP replies, redirecting other clients' traffic to themselves. Discovered by AirTight Networks at DEF CON 18 (2010). Requires valid network credentials.",
+    "severity": "MEDIUM",
+    "cvssScore": 6.8,
+    "recommendation": "Implement client isolation (AP isolation/Layer-2 isolation). Use WPA3-Enterprise with Protected Management Frames. Segment the network with VLANs.",
+    "affectedVersions": "All WPA2-Enterprise networks without client isolation; affects IEEE 802.11i specification"
+  },
+  {
+    "cveId": "CVE-2008-2629",
+    "protocol": "WPA",
+    "title": "Beck-Tews Attack - WPA TKIP Partial Decryption",
+    "description": "Martin Beck and Erik Tews demonstrated in 2008 the first practical attack on WPA-TKIP. By exploiting the QoS channels and the Michael MIC algorithm weakness, an attacker can decrypt the last 12 bytes of a short WPA-TKIP packet (typically ARP or DNS replies) within 12–15 minutes. Combined with MIC key recovery, an attacker can then inject up to 7 forged packets of any content toward the client.",
+    "severity": "HIGH",
+    "cvssScore": 7.8,
+    "recommendation": "Disable WPA-TKIP. Use WPA2-AES/CCMP exclusively. TKIP was deprecated in 802.11-2012.",
+    "affectedVersions": "WPA-TKIP implementations; particularly QoS-enabled access points (802.11e/n/ac)"
+  },
+  {
+    "cveId": "CVE-2009-4157",
+    "protocol": "WPA",
+    "title": "Ohigashi-Morii Attack - Improved WPA TKIP Decryption",
+    "description": "Toshihiro Ohigashi and Masakatu Morii improved the Beck-Tews attack in 2009 by combining it with a man-in-the-middle technique, reducing the attack time from 12–15 minutes to approximately 1 minute. By acting as a relay between client and AP while manipulating QoS channels, the attacker can more efficiently recover the MIC key and decrypt/inject arbitrary short packets against WPA-TKIP networks.",
+    "severity": "HIGH",
+    "cvssScore": 8.0,
+    "recommendation": "Disable TKIP. Enable only AES/CCMP in WPA2 mode. Update router firmware to enforce AES-only mode.",
+    "affectedVersions": "WPA-TKIP; 802.11n/e APs with QoS enabled"
+  },
+  {
+    "cveId": "CVE-2019-9494",
+    "protocol": "WPA3",
+    "title": "Dragonblood - WPA3-SAE Cache-Based Side-Channel",
+    "description": "Mathy Vanhoef and Eyal Ronen discovered multiple vulnerabilities in WPA3-Personal (SAE/Dragonfly handshake) in 2019. The cache-based side-channel attack allows an attacker to observe memory access patterns during SAE's password encoding phase. By timing the AP's responses over multiple handshake attempts, an attacker can infer which branch was taken in the password hash algorithm, enabling offline dictionary attacks — bypassing WPA3's primary security advantage.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Update to WPA3-SAE with Dragonfly Hunting and Pecking fix (constant-time hash-to-curve). Apply vendor firmware patches. Use WPA3 with recent 802.11-2020 compliant implementations.",
+    "affectedVersions": "WPA3-SAE implementations before 2019 patches; hostapd before 2.9, wpa_supplicant before 2.9"
+  },
+  {
+    "cveId": "CVE-2019-9496",
+    "protocol": "WPA3",
+    "title": "Dragonblood - WPA3-SAE Denial of Service via Commit Frames",
+    "description": "A denial-of-service vulnerability in WPA3-SAE where an unauthenticated attacker can send forged SAE Commit frames to an access point, causing it to perform expensive cryptographic operations (large-prime group computations). By flooding the AP with commit frames using large prime groups, an attacker can exhaust CPU resources and prevent legitimate clients from connecting. No authentication or association is required.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.3,
+    "recommendation": "Apply WAP3-SAE patches (hostapd 2.9+). Implement anti-clogging token mechanism (commit frame rate limiting) per IEEE 802.11-2020.",
+    "affectedVersions": "WPA3-SAE APs before 2019 patches; hostapd < 2.9"
+  },
+  {
+    "cveId": "CVE-2019-9497",
+    "protocol": "WPA3",
+    "title": "Dragonblood - WPA3-SAE Reflection Attack",
+    "description": "A reflection attack vulnerability in the WPA3-SAE Dragonfly handshake. An attacker can reflect the commit and confirm frames back to the victim AP without knowing the password, potentially causing a successful handshake with a zero-length PMK under certain implementations. This vulnerability affects specific implementations that do not properly validate the peer's scalar and element values during the commit phase.",
+    "severity": "HIGH",
+    "cvssScore": 8.1,
+    "recommendation": "Update to patched WPA3-SAE implementations. Ensure scalar/element validation per RFC 7664. Apply hostapd/wpa_supplicant patches.",
+    "affectedVersions": "WPA3-SAE implementations before June 2019 patches"
+  },
+  {
+    "cveId": "CVE-2019-9498",
+    "protocol": "WPA3",
+    "title": "Dragonblood - WPA3-EAP-PWD Server Bypass",
+    "description": "In WPA3-Enterprise using EAP-PWD, a server does not validate that the client's commit scalar and element are valid (not identity elements or invalid curve points). This allows an attacker without the password to complete the EAP-PWD handshake by sending invalid commit messages, potentially obtaining a session key and being authenticated. Affected FreeRADIUS and other EAP-PWD server implementations.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Update FreeRADIUS to 3.0.20 or later. Apply all EAP-PWD server patches. Validate all cryptographic group elements per RFC 5931.",
+    "affectedVersions": "FreeRADIUS < 3.0.20; EAP-PWD server implementations before June 2019"
+  },
+  {
+    "cveId": "CVE-2021-0326",
+    "protocol": "WPA2",
+    "title": "Android wpa_supplicant Heap Overflow in P2P Group Info",
+    "description": "A heap overflow vulnerability in Android's wpa_supplicant (WiFi Direct P2P stack) when processing malformed P2P (Wi-Fi Direct) group information. A remote attacker within WiFi range can send a specially crafted P2P provision discovery request, triggering a heap buffer overflow that can lead to arbitrary code execution with system privileges. No user interaction required; exploitable when WiFi Direct is enabled.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply Android February 2021 security patch. Disable Wi-Fi Direct if not needed. Update to Android 11 or later.",
+    "affectedVersions": "Android 8.0–11 before February 2021 patch"
+  },
+  {
+    "cveId": "CVE-2019-15126",
+    "protocol": "WPA2",
+    "title": "Kr00k - Post-Disassociation All-Zero Key Encryption",
+    "description": "Kr00k (CVE-2019-15126) affects Broadcom and Cypress WiFi chips. After a disassociation event, the chip resets the session key (PTK) to all zeros but continues to transmit buffered data frames encrypted with this all-zero key. An attacker can trigger disassociation (e.g., via a deauth frame) and then intercept the re-transmitted frames encrypted with an all-zero key — trivially decryptable. Affects 1 billion+ devices including iPhones, iPads, Macs, Amazon Echo/Kindle, and Raspberry Pi 3.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Update firmware for Broadcom/Cypress chips. Apply OS patches: iOS 13.2+, macOS 10.15.1+, Android vendor patches, Amazon firmware updates.",
+    "affectedVersions": "Broadcom BCM4375, BCM4356, BCM4335, BCM43143; Cypress CYW4373, CYW43455; devices before 2020 patches"
+  },
+  {
+    "cveId": "CVE-2020-24588",
+    "protocol": "802.11",
+    "title": "FragAttacks - Non-SPP A-MSDU Aggregation Injection",
+    "description": "FragAttacks (Fragmentation and Aggregation Attacks) discovered by Mathy Vanhoef in 2020. This specific variant exploits the 802.11 frame aggregation design flaw where an attacker can inject a plaintext aggregated MSDU frame by abusing the 'is aggregated' flag. Because the flag is not integrity-protected, an attacker can inject arbitrary frames (e.g., DHCP responses, DNS responses) that will be processed by the victim's network stack, enabling man-in-the-middle attacks.",
+    "severity": "MEDIUM",
+    "cvssScore": 6.5,
+    "recommendation": "Apply firmware and OS patches from all vendors (major patches released May 2021). Where possible, use encrypted connections (HTTPS, VPN) as a defense-in-depth measure.",
+    "affectedVersions": "Virtually all WiFi devices; 802.11 standard design flaw present since 1997"
+  },
+  {
+    "cveId": "CVE-2020-24586",
+    "protocol": "802.11",
+    "title": "FragAttacks - Fragment Cache Attack",
+    "description": "FragAttacks variant exploiting the 802.11 fragment caching mechanism. Access points cache the first fragment of a reassembly operation. An attacker can inject a malicious first fragment into the cache while a victim is associated (or even before association), then trigger legitimate fragment transmission from the victim to cause the AP to reassemble fragments from different sources. Enables plaintext injection in encrypted networks and bypassing firewalls in unencrypted networks.",
+    "severity": "MEDIUM",
+    "cvssScore": 6.5,
+    "recommendation": "Flush fragment cache on each new association. Apply vendor patches. Use HTTPS/VPN for sensitive data.",
+    "affectedVersions": "Most WiFi access points; design flaw in IEEE 802.11 standard"
+  },
+  {
+    "cveId": "CVE-2020-24587",
+    "protocol": "802.11",
+    "title": "FragAttacks - Mixed Key Attack on Fragmented Frames",
+    "description": "FragAttacks mixed-key attack exploits the fact that 802.11 reassembles fragments encrypted with different keys (e.g., before and after a rekeying operation). By controlling when a key rotation occurs and pre-staging a crafted fragment, an attacker can cause the victim to reassemble a frame containing attacker-controlled data mixed with legitimate encrypted fragments. Can be used to inject data into the victim's network stack.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.9,
+    "recommendation": "Apply firmware and driver patches. Drop fragments encrypted with multiple different keys. Apply vendor May 2021 patches.",
+    "affectedVersions": "WiFi implementations that accept fragments encrypted under different PTKs"
+  },
+  {
+    "cveId": "CVE-2020-26140",
+    "protocol": "802.11",
+    "title": "FragAttacks - Plaintext Data Injection in Protected Networks",
+    "description": "FragAttacks design flaw allowing an attacker to inject plaintext frames in WPA2/WPA3 protected networks. The 802.11 standard allows sending unencrypted group-addressed data frames without authentication in certain states. By injecting such frames (e.g., DHCP replies, ICMP redirects, rogue DNS responses), an attacker on the same WiFi segment can redirect victim traffic or inject malicious data.",
+    "severity": "HIGH",
+    "cvssScore": 7.4,
+    "recommendation": "Update firmware. Implement Protected Management Frames (PMF). Use VPN or TLS for all sensitive communications.",
+    "affectedVersions": "Devices not enforcing encryption on all frames; common in AP bridge mode configurations"
+  },
+  {
+    "cveId": "DOT11-DEAUTH-FLOOD",
+    "protocol": "802.11",
+    "title": "802.11 Deauthentication Flood - Management Frame DoS",
+    "description": "Pre-802.11w management frames (including Deauthentication and Disassociation frames) are unauthenticated and unencrypted. An attacker can spoof the MAC address of an AP and send deauthentication frames to clients, forcibly disconnecting them. By flooding deauth frames, an attacker causes a continuous denial of service. This is also used as a preliminary step to capture WPA handshakes for offline cracking.",
+    "severity": "MEDIUM",
+    "cvssScore": 6.5,
+    "recommendation": "Enable IEEE 802.11w Protected Management Frames (PMF). Use WPA3 which mandates PMF. Enable PMF on WPA2 networks in 'required' mode where all clients support it.",
+    "affectedVersions": "All 802.11 networks without 802.11w (PMF); effectively all pre-2018 network deployments"
+  },
+  {
+    "cveId": "WIFI-EVIL-TWIN",
+    "protocol": "802.11",
+    "title": "Evil Twin Attack - Rogue Access Point MITM",
+    "description": "An evil twin attack creates a rogue access point with the same SSID (and optionally BSSID) as a legitimate network. Clients with automatic reconnection enabled will associate with the higher-signal rogue AP. The attacker acts as a relay between the client and the real AP (or internet), performing a full man-in-the-middle attack. Combined with SSL stripping or rogue captive portals, credentials, session tokens, and sensitive data can be captured.",
+    "severity": "HIGH",
+    "cvssScore": 8.8,
+    "recommendation": "Use 802.1X/EAP authentication which validates server certificates. Deploy Wireless Intrusion Detection Systems (WIDS). Train users to verify network certificates. Use VPNs on untrusted networks.",
+    "affectedVersions": "All WiFi networks; open networks and WPA2-Personal most vulnerable"
+  },
+  {
+    "cveId": "WIFI-KARMA-ATTACK",
+    "protocol": "802.11",
+    "title": "KARMA Attack - Probe Request SSID Impersonation",
+    "description": "The KARMA (Knowing Access points Respond to Misc probes Aggressively) attack exploits the 802.11 active scanning mechanism. WiFi clients broadcast probe requests containing SSIDs of previously connected networks. An attacker's rogue AP responds to ALL probe requests, claiming to be any previously-connected SSID the client probes for. Clients automatically associate with the rogue AP believing it's a trusted network. Variants include MANA (Multi SSID KARMA) and Loud KARMA attacks.",
+    "severity": "HIGH",
+    "cvssScore": 8.1,
+    "recommendation": "Disable automatic reconnection to open networks. Delete unused network profiles. Use 802.1X where possible. Modern OS versions (iOS 15+, Android 11+) have mitigations. Use random MAC addresses.",
+    "affectedVersions": "Clients with stored open network profiles; most pre-2020 devices without probe request randomization"
+  },
+  {
+    "cveId": "WPS-PIN-BRUTEFORCE",
+    "protocol": "WPS",
+    "title": "WPS PIN Brute Force - Pixie Dust and Online Attacks",
+    "description": "WiFi Protected Setup (WPS) PIN authentication is vulnerable to brute force due to a design flaw: the 8-digit PIN is verified in two halves (4+4 digits), reducing the search space from 100 million to ~11,000 combinations. An attacker using Reaver or Bully can brute-force the PIN in hours. The Pixie Dust attack (CVE-2014-9486) exploits weak randomness in Enrollee nonce generation on many chipsets, recovering the PIN offline in seconds.",
+    "severity": "HIGH",
+    "cvssScore": 8.8,
+    "recommendation": "Disable WPS on all access points. Enable AP lockout after failed PIN attempts if WPS must remain enabled. Upgrade to WPS2 or use WPA3 SAE instead.",
+    "affectedVersions": "All WPS-enabled routers; Ralink, Realtek, Broadcom chipsets particularly vulnerable to Pixie Dust"
+  },
+  {
+    "cveId": "CVE-2014-9486",
+    "protocol": "WPS",
+    "title": "WPS Pixie Dust Attack - Offline WPS PIN Recovery",
+    "description": "The Pixie Dust attack exploits weak or predictable pseudo-random number generation in WPS Enrollee implementations. During the WPS exchange, two nonces (E-S1, E-S2) are generated by the Enrollee. On vulnerable chipsets (particularly Ralink, Realtek, and some Broadcom implementations), these nonces are derived from predictable seeds (e.g., uptime, zero values). By capturing the WPS handshake, an attacker can compute the PSK offline in seconds to minutes using tools like pixiewps.",
+    "severity": "HIGH",
+    "cvssScore": 9.0,
+    "recommendation": "Disable WPS permanently. If WPS is required, verify chipset is not vulnerable to Pixie Dust. Apply firmware updates. Use WPA3 with SAE as replacement for easy setup.",
+    "affectedVersions": "Ralink RT5392, RT5572; Realtek RTL8192CU; MediaTek MT7688; affected routers from TP-Link, D-Link, ASUS, Netgear (varies by firmware)"
+  },
+  {
+    "cveId": "CVE-2024-30078",
+    "protocol": "WPA2",
+    "title": "Windows WiFi Driver Remote Code Execution",
+    "description": "A remote code execution vulnerability in the Windows WiFi Driver (nwifi.sys) discovered in 2024. An unauthenticated attacker within WiFi radio range can send specially crafted 802.11 management frames to trigger a heap-based buffer overflow in the kernel WiFi driver, potentially achieving code execution in kernel context. No user interaction or authentication is required. Exploitation requires only physical proximity to a vulnerable Windows system with WiFi enabled.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply Microsoft security update KB5039212 (June 2024 Patch Tuesday). Disable WiFi adapters in high-security environments. Monitor Microsoft security advisories.",
+    "affectedVersions": "Windows 10 (all versions), Windows 11 (all versions) before June 2024 patch; Windows Server 2022"
+  },
+  {
+    "cveId": "CVE-2021-24086",
+    "protocol": "WPA2",
+    "title": "Windows TCP/IP Denial of Service via Fragmented WiFi Packets",
+    "description": "A denial-of-service vulnerability in Windows TCP/IP stack when processing fragmented IPv6 packets received over WiFi. An attacker can send specially crafted fragmented IPv6 packets over a WiFi connection to cause a BSoD (Blue Screen of Death). The vulnerability exists in the fragment reassembly code path and can be triggered remotely over the local WiFi segment without authentication.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Apply February 2021 Windows security patches. Block malformed IPv6 fragments at the network perimeter. Disable IPv6 if not needed.",
+    "affectedVersions": "Windows 10, Windows Server 2019/2016 before February 2021 patch"
+  },
+  {
+    "cveId": "CVE-2020-26144",
+    "protocol": "802.11",
+    "title": "FragAttacks - Accept Plaintext A-MSDU Frames",
+    "description": "A FragAttacks implementation vulnerability where certain WiFi implementations incorrectly accept plaintext A-MSDU frames that start with an RFC 1042 header using EtherType 0x890D. This allows an adversary to inject arbitrary network packets within a WPA2/WPA3 protected network, bypassing the encryption protection for injected frames. Particularly dangerous as it enables DNS spoofing and other traffic manipulation attacks.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Apply vendor firmware updates from May 2021. Validate A-MSDU subframe LLC/SNAP headers. Use HTTPS and VPN for sensitive communications.",
+    "affectedVersions": "Various WiFi chipsets including Qualcomm Atheros, Intel, MediaTek before 2021 patches"
+  },
+  {
+    "cveId": "CVE-2022-47522",
+    "protocol": "WPA2",
+    "title": "MacStealer - MAC Address Spoofing Queue Hijack in WPA2",
+    "description": "Discovered in 2023, MacStealer exploits the way 802.11 access points buffer frames for sleeping clients. An attacker can spoof the MAC address of a legitimate client, trick the AP into believing the client is in power-saving mode, then retrieve the client's buffered frames by waking up the AP with the spoofed MAC. This works even in WPA2 networks because MAC addresses are not protected by the encryption. Enables interception of unicast frames without breaking encryption.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.3,
+    "recommendation": "Enable 802.11w Protected Management Frames. Apply AP firmware updates. Use end-to-end encryption (TLS/HTTPS) for sensitive traffic.",
+    "affectedVersions": "Most 802.11 access points; particularly Cisco, Ubiquiti, TP-Link, ASUS, D-Link before 2023 patches"
+  },
+  {
+    "cveId": "CVE-2021-30005",
+    "protocol": "WPA2",
+    "title": "Qualcomm WLAN Driver Stack Overflow via Beacon Frames",
+    "description": "A stack-based buffer overflow vulnerability in Qualcomm WLAN firmware when processing crafted 802.11 beacon frames. An attacker broadcasting malformed beacon frames within WiFi range can trigger a buffer overflow in the Qualcomm QDSP6/Hexagon DSP firmware, potentially leading to arbitrary code execution in the WiFi subsystem. Exploitable without any user interaction; affects a wide range of Android devices using Qualcomm Snapdragon chipsets.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply Qualcomm QSA-2021-23 security bulletin patches. Update Android device firmware. Apply OEM-specific security patches from Samsung, OnePlus, Xiaomi, etc.",
+    "affectedVersions": "Qualcomm Snapdragon 845, 855, 865, 888; Android devices with Qualcomm WiFi before 2021 patches"
+  },
+  {
+    "cveId": "CVE-2021-33655",
+    "protocol": "802.11",
+    "title": "Linux mac80211 Heap Overflow in Station Mode",
+    "description": "A heap buffer overflow vulnerability in the Linux kernel mac80211 subsystem when processing malformed 802.11 management frames in station mode. An attacker within WiFi range can send specially crafted management frames to a Linux system (or Android device), triggering a heap overflow in the kernel WiFi stack that can lead to privilege escalation or arbitrary kernel code execution.",
+    "severity": "HIGH",
+    "cvssScore": 8.2,
+    "recommendation": "Update Linux kernel to 5.15.58+ or 5.18.17+ or 5.19.2+. Apply Android security patch for affected kernels. Update affected distributions.",
+    "affectedVersions": "Linux kernel < 5.19.2; Android devices with Linux 5.x kernel before August 2022 patch"
+  },
+  {
+    "cveId": "CVE-2019-9503",
+    "protocol": "WPA2",
+    "title": "Brcmfmac Broadcom Firmware Frame Validation Bypass",
+    "description": "The Broadcom brcmfmac WiFi driver in Linux does not properly validate firmware events received from the WiFi chip. A crafted malicious WiFi chip firmware event (or a compromised chip) can pass unchecked to the host driver, leading to potential privilege escalation from the WiFi chip to the main CPU. Part of a chain of vulnerabilities discovered by Google Project Zero allowing full device compromise via the WiFi radio.",
+    "severity": "HIGH",
+    "cvssScore": 8.3,
+    "recommendation": "Update Linux kernel. Apply firmware updates for Broadcom WiFi chips. Review brcmfmac driver event validation. Use driver with proper frame validation.",
+    "affectedVersions": "Linux brcmfmac driver before 2019 patches; affects Raspberry Pi, Chromebook, Android devices with Broadcom WiFi"
+  },
+  {
+    "cveId": "CVE-2017-0561",
+    "protocol": "WPA2",
+    "title": "Broadcom BCM WiFi Heap Overflow via Probe Response Frames",
+    "description": "A critical heap overflow in Broadcom BCM WiFi chipset firmware (used in many Android devices, iPhones, and routers) when processing malformed probe response frames. An attacker can broadcast specially crafted probe response frames, triggering a heap overflow in the Broadcom WiFi firmware that enables arbitrary code execution within the WiFi chip — and potentially in the host kernel. Exploitable without any user interaction, without network association.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply Android March 2017 security bulletin. Update iOS (Apple patched separately). Apply Broadcom firmware updates. Mitigated by WiFi chip-level sandboxing in newer devices.",
+    "affectedVersions": "Broadcom BCM4339, BCM4354, BCM4358; affects Android devices, iPhone 5/6, Samsung Galaxy S/Note series"
+  },
+  {
+    "cveId": "CVE-2019-15063",
+    "protocol": "WPA2",
+    "title": "MediaTek MT7915/MT7921 WiFi Driver Heap Overflow",
+    "description": "A heap-based buffer overflow in the MediaTek WiFi driver (mt76) for MT7915/MT7921 chipsets when processing malformed EAPOL frames. An attacker within WiFi range can send crafted EAPOL frames before or during the authentication phase, triggering a heap overflow in the kernel driver. MediaTek chipsets are widely used in budget Android devices, routers, and IoT devices, making this vulnerability broadly impactful.",
+    "severity": "HIGH",
+    "cvssScore": 8.8,
+    "recommendation": "Apply vendor OEM patches. Update Linux mt76 driver. Update Android ROM for affected devices. Disable WiFi when not in use in high-security environments.",
+    "affectedVersions": "MediaTek MT7915, MT7921, MT7902; Android and Linux devices with mt76 driver before 2019 patches"
+  },
+  {
+    "cveId": "CVE-2021-23168",
+    "protocol": "WPA2",
+    "title": "Intel WiFi Driver Out-of-Bounds Read via SSID Parsing",
+    "description": "An out-of-bounds read vulnerability in Intel WiFi (iwlwifi) driver when processing SSID Information Elements in beacon and probe response frames. A rogue access point broadcasting malformed SSIDs can trigger an out-of-bounds read in the kernel driver, leading to information disclosure of kernel memory — potentially leaking KASLR base addresses useful for further exploitation.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.9,
+    "recommendation": "Apply Intel Security Advisory INTEL-SA-00539. Update iwlwifi driver. Apply OS vendor patches (kernel updates from February 2021).",
+    "affectedVersions": "Intel AX200, AX201, AX210, 9260, 9560 series; Linux iwlwifi driver before 2021 patches"
+  },
+  {
+    "cveId": "CVE-2020-12321",
+    "protocol": "WPA2",
+    "title": "Intel WiFi Improper Buffer Restriction in Firmware",
+    "description": "An improper buffer restriction vulnerability in Intel WiFi module firmware allows a privileged attacker within radio range to potentially enable escalation of privilege. The vulnerability exists in the firmware's handling of certain management frames, where insufficient validation of frame length fields can cause a buffer overflow in the firmware's processing stack.",
+    "severity": "HIGH",
+    "cvssScore": 7.9,
+    "recommendation": "Apply Intel Security Advisory INTEL-SA-00427. Update WiFi module firmware via Intel PROSet/Wireless Software. Apply OS-level driver updates.",
+    "affectedVersions": "Intel WiFi 6 AX201, AX200, Wireless-AC 9462, 9461, 9260, 9560 before firmware update"
+  },
+  {
+    "cveId": "CVE-2020-12357",
+    "protocol": "WPA2",
+    "title": "Intel WiFi Stack-Based Buffer Overflow in PROSet Driver",
+    "description": "A stack-based buffer overflow in Intel PROSet/Wireless WiFi driver when processing certain Network Diagnostics frames. An unauthenticated attacker within WiFi range can send malformed frames to trigger the overflow, potentially enabling code execution in the context of the WiFi driver (kernel mode). Intel PROSet is used on Windows systems with Intel WiFi chipsets.",
+    "severity": "HIGH",
+    "cvssScore": 8.4,
+    "recommendation": "Update Intel PROSet/Wireless WiFi driver to latest version. Apply Intel Security Advisory INTEL-SA-00427. Use Windows Update for driver updates.",
+    "affectedVersions": "Intel PROSet/Wireless WiFi driver before 22.40 on Windows 10/11"
+  },
+  {
+    "cveId": "CVE-2020-26139",
+    "protocol": "WPA2",
+    "title": "FragAttacks - AP Forwards EAPOL Frames to Unauthenticated Clients",
+    "description": "A FragAttacks vulnerability where an access point incorrectly forwards EAPOL (Extensible Authentication Protocol over LAN) frames to a client that has not yet completed authentication. An attacker can send forged EAPOL frames addressed to a victim client, causing the AP to forward them before the client has authenticated. This can be used to inject fake DHCP, DNS, or other layer-2/3 data before the client has a chance to establish a secure session.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.9,
+    "recommendation": "Apply AP firmware patches. Ensure APs do not forward EAPOL frames to unassociated clients. Apply vendor May 2021 FragAttacks patches.",
+    "affectedVersions": "Multiple AP implementations including Cisco, Aruba, Ubiquiti before May 2021 patches"
+  },
+  {
+    "cveId": "WIFI-SSID-CONFUSION",
+    "protocol": "802.11",
+    "title": "SSID Confusion Attack - VPN Bypass via Network Impersonation",
+    "description": "Discovered by Mathy Vanhoef in 2024, the SSID Confusion attack exploits the fact that the 802.11 standard does not mandate cryptographic binding of the SSID to the authentication process in WPA2-Enterprise. An attacker can set up a rogue AP with the same credentials (certificates) as a legitimate Enterprise network but a different SSID, tricking clients into connecting to a different network than intended. This can bypass VPN kill-switches and split-tunnel configurations that are keyed to specific SSIDs.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Upgrade to WPA3 which includes SSID protection in the 4-way handshake. In WPA2-Enterprise, use network profile pinning. Include SSID in TLS server certificate validation.",
+    "affectedVersions": "All WPA2-Enterprise networks; all WPA2-Personal networks with similar SSIDs; 802.11 design-level vulnerability"
+  },
+  {
+    "cveId": "WIFI-PROBE-PRIVACY",
+    "protocol": "802.11",
+    "title": "Probe Request Privacy Leakage - Network History Disclosure",
+    "description": "WiFi clients broadcast probe requests containing the SSIDs of previously connected networks during active scanning. This allows passive observers to build a profile of locations a device has visited (home network, office, hotels, cafes). Combined with a static MAC address (pre-802.11aq), this enables cross-location tracking of individual devices. Probe requests are transmitted in cleartext at regular intervals even when not connected to any network.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.3,
+    "recommendation": "Enable MAC address randomization (supported in Android 8+, iOS 14+, Windows 10 20H2+). Disable 'send preferred network list' in probe requests. Delete unused network profiles. Use 'passive scanning only' where supported.",
+    "affectedVersions": "All 802.11 clients before MAC randomization support; most pre-2019 devices"
+  },
+  {
+    "cveId": "WIFI-AUTO-CONNECT",
+    "protocol": "802.11",
+    "title": "Auto-Connect to Open Networks - Rogue AP Association",
+    "description": "Many devices are configured to automatically connect to open (unencrypted) networks previously associated with. Attackers exploit this by setting up rogue access points with common SSIDs ('linksys', 'NETGEAR', 'xfinitywifi', 'attwifi', etc.). Devices automatically associate without user interaction, enabling traffic interception, credential capture via captive portal lookalikes, and malware injection. This behavior is particularly dangerous in airports, hotels, and coffee shops.",
+    "severity": "HIGH",
+    "cvssScore": 8.1,
+    "recommendation": "Disable automatic connection to open networks. Remove unused network profiles. Use a VPN on all connections. Configure devices to require user confirmation before connecting to open networks.",
+    "affectedVersions": "All WiFi-enabled devices with automatic open-network association; Windows, macOS, Android, iOS before respective hardening"
+  },
+  {
+    "cveId": "CVE-2017-9417",
+    "protocol": "WPA2",
+    "title": "Broadcom WiFi brcmfmac Buffer Overflow via Frame Processing",
+    "description": "Heap buffer overflow in the Broadcom WiFi chip firmware when processing specially crafted 802.11 management frames. This critical vulnerability (BroadPwn) allows an attacker within WiFi range to achieve remote code execution on the Broadcom WiFi chip, and under certain conditions, escalate to the host application processor kernel. Exploitable without any user interaction, the attack requires only that WiFi is enabled on the target device.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply Android July 2017 Security Bulletin patches. Update iOS to 10.3.3 or later. Apply vendor firmware updates. Consider disabling WiFi when not in use.",
+    "affectedVersions": "Broadcom BCM43xx series; Android devices, iPhone 7 and earlier, iPad before iOS 10.3.3"
+  },
+  {
+    "cveId": "CVE-2019-18901",
+    "protocol": "WPA2",
+    "title": "wpa_supplicant SAE Confirm Message Denial of Service",
+    "description": "A denial-of-service vulnerability in wpa_supplicant's SAE (Simultaneous Authentication of Equals) implementation when processing SAE Confirm messages. A malformed SAE Confirm message from an unauthenticated peer can cause wpa_supplicant to crash (NULL pointer dereference), forcing a WiFi disconnection and reconnection. The vulnerability can be triggered repeatedly to maintain a persistent denial of service against WPA3-SAE clients.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.9,
+    "recommendation": "Update wpa_supplicant to 2.9 or later. Apply OS vendor patches. Monitor for repeated SAE handshake failures.",
+    "affectedVersions": "wpa_supplicant 2.6–2.8; Linux systems and Android using affected wpa_supplicant before 2019 patches"
+  },
+  {
+    "cveId": "CVE-2022-42719",
+    "protocol": "WPA2",
+    "title": "Linux mac80211 Use-After-Free in Multi-BSSID Parsing",
+    "description": "A use-after-free vulnerability in the Linux kernel's mac80211 WiFi subsystem when parsing Multi-BSSID (Multiple Basic Service Set Identifiers) elements in beacon frames. An attacker operating a rogue AP can craft beacon frames with malformed Multi-BSSID elements, triggering a use-after-free condition in the kernel WiFi stack. This can be exploited for arbitrary kernel code execution or privilege escalation on Linux systems and Android devices.",
+    "severity": "HIGH",
+    "cvssScore": 8.8,
+    "recommendation": "Update Linux kernel to 6.0.1+ or apply backport patch. Apply Android October 2022 security patch. Update Linux distribution kernels.",
+    "affectedVersions": "Linux kernel 5.1–6.0 before October 2022 patches"
+  },
+  {
+    "cveId": "CVE-2022-42720",
+    "protocol": "WPA2",
+    "title": "Linux mac80211 BSS Refcount Use-After-Free",
+    "description": "A use-after-free vulnerability in Linux mac80211 subsystem's BSS (Basic Service Set) reference counting when processing beacon and probe response frames. A reference counting error allows a BSS structure to be freed while still in use, enabling an attacker operating a rogue AP to trigger kernel memory corruption. The vulnerability exists in the BSS color change handling code introduced with 802.11ax (WiFi 6).",
+    "severity": "HIGH",
+    "cvssScore": 7.8,
+    "recommendation": "Update to Linux kernel 6.0.1 or later. Apply distribution-specific kernel patches. Disable 802.11ax (WiFi 6) features in environments where exploitation is a concern.",
+    "affectedVersions": "Linux kernel with mac80211 before October 2022 patch; particularly affects WiFi 6 (802.11ax) configurations"
+  },
+  {
+    "cveId": "CVE-2022-41674",
+    "protocol": "WPA2",
+    "title": "Linux mac80211 Heap Buffer Overflow in Extended Capabilities Parsing",
+    "description": "A heap-based buffer overflow in the Linux kernel mac80211 WiFi subsystem when parsing Extended Capabilities Information Elements in management frames. An attacker broadcasting malformed management frames can trigger a heap overflow up to 64 bytes in the kernel's scan result processing code. Exploitable remotely without authentication, potentially enabling kernel code execution on Linux desktops, servers, and Android devices.",
+    "severity": "HIGH",
+    "cvssScore": 8.8,
+    "recommendation": "Update to Linux kernel 6.0.1+ or 5.15.75+ (LTS). Apply Android October 2022 security patch. Update Linux distributions (Ubuntu, Debian, Fedora, RHEL).",
+    "affectedVersions": "Linux kernel before 6.0.1; Android before October 2022 patch"
+  },
+  {
+    "cveId": "CVE-2019-11477",
+    "protocol": "WPA2",
+    "title": "SACK Panic - TCP Selective Acknowledgment Integer Overflow via WiFi",
+    "description": "An integer overflow vulnerability in the Linux kernel TCP SACK (Selective Acknowledgment) implementation, triggerable by a remote attacker. When combined with WiFi connectivity, an attacker on the same network segment can send crafted TCP SACK segments that cause a kernel panic (SACK Panic). While not WiFi-specific, it is particularly relevant in WiFi contexts where network-adjacent attackers can more easily inject or manipulate TCP sessions.",
+    "severity": "HIGH",
+    "cvssScore": 8.6,
+    "recommendation": "Apply Linux kernel patches for CVE-2019-11477. Disable SACK as workaround (net.ipv4.tcp_sack=0). Update kernel to 5.1.12, 5.0.21, 4.19.52, 4.14.124 or later.",
+    "affectedVersions": "Linux kernel 2.6.29–5.1 before June 2019 patches"
+  },
+  {
+    "cveId": "CVE-2020-12653",
+    "protocol": "WPA2",
+    "title": "Marvell WiFi Driver Heap Overflow via Crafted Management Frames",
+    "description": "A heap-based buffer overflow in the Marvell WiFi driver (mwifiex) in the Linux kernel when processing malformed 802.11 management frames. An attacker within WiFi range can send crafted management frames that trigger a heap overflow in the mwifiex scan request handling code, potentially enabling arbitrary code execution with kernel privileges. The Marvell mwifiex driver is used in many laptops, Chromebooks, and embedded devices.",
+    "severity": "HIGH",
+    "cvssScore": 8.8,
+    "recommendation": "Update Linux kernel. Apply vendor-specific patches. The upstream kernel patch was merged in Linux 5.6. Apply distribution backports.",
+    "affectedVersions": "Linux mwifiex driver before Linux 5.6; Marvell 88W8764, 88W8897, 88W8997 chipsets"
+  },
+  {
+    "cveId": "CVE-2020-9213",
+    "protocol": "WPA2",
+    "title": "Marvell Avastar WiFi Chip Pre-Auth Buffer Overflow",
+    "description": "Multiple buffer overflow vulnerabilities in Marvell Avastar WiFi chip firmware during the network scanning/probing phase. These vulnerabilities can be triggered before any network authentication takes place — simply having WiFi enabled is sufficient. An attacker broadcasting specially crafted WiFi frames can achieve remote code execution within the Marvell Avastar firmware. Affects Sony PlayStation 4, Microsoft Surface laptops, Samsung Chromebooks, and Valve Steam Link.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply vendor firmware updates. Sony PS4 system software update required. Microsoft Surface firmware updates required. Keep device firmware current.",
+    "affectedVersions": "Marvell Avastar 88W8897; PlayStation 4, Microsoft Surface Pro 1/2/3, Microsoft Band, Samsung Chromebook, Valve Steam Link"
+  },
+  {
+    "cveId": "CVE-2021-0391",
+    "protocol": "WPA2",
+    "title": "Android WiFi Direct P2P SDK Privilege Escalation",
+    "description": "A privilege escalation vulnerability in Android's WiFi Direct (P2P) service. An app with only the ACCESS_WIFI_STATE permission (considered low-sensitivity) can exploit a missing permission check in the P2P service to configure and control WiFi Direct settings that should require CHANGE_WIFI_STATE or higher. This allows an unprivileged app to join or create P2P groups, enabling network-level attacks from unprivileged applications.",
+    "severity": "HIGH",
+    "cvssScore": 7.8,
+    "recommendation": "Apply Android March 2021 security patch. Review app permission grants. Keep Android device updated.",
+    "affectedVersions": "Android 8.1–11 before March 2021 patch"
+  },
+  {
+    "cveId": "CVE-2021-22156",
+    "protocol": "WPA2",
+    "title": "BlackBerry QNX WiFi Stack Denial of Service",
+    "description": "A denial-of-service vulnerability in the WiFi stack of BlackBerry QNX, widely used in automotive infotainment systems, medical devices, and industrial control systems. Crafted WiFi management frames can cause the QNX WiFi stack to crash, requiring a device reboot. In automotive or industrial contexts, this could cause disruption to safety-critical systems that rely on WiFi connectivity for OTA updates, diagnostics, or control.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Apply BlackBerry QNX security patch. Update affected automotive and industrial firmware. Implement network segmentation to isolate WiFi-enabled QNX systems.",
+    "affectedVersions": "BlackBerry QNX 6.5.x and 7.0.x; automotive ECUs, medical devices with QNX WiFi stack"
+  },
+  {
+    "cveId": "CVE-2019-2025",
+    "protocol": "WPA2",
+    "title": "Android Binder Use-After-Free via WiFi HAL",
+    "description": "A use-after-free vulnerability in Android's Binder IPC mechanism, exploitable through the WiFi Hardware Abstraction Layer (HAL). The WiFi HAL communicates via Binder with the Android WiFi service; a malicious WiFi HAL implementation or a compromised WiFi chipset vendor daemon can trigger a use-after-free in the Binder kernel driver, escalating from the WiFi HAL privilege level to kernel privileges.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply Android March 2019 security patches. Keep Android fully updated. Verify WiFi HAL vendor implementation is from a trusted source.",
+    "affectedVersions": "Android 7.0–9.0 before March 2019 patch"
+  },
+  {
+    "cveId": "SPECTRA-BTWIFI-COEX",
+    "protocol": "Bluetooth",
+    "title": "Spectra - Bluetooth/WiFi Coexistence Chip Attack",
+    "description": "The Spectra attack (2020) by Jiska Classen and Francesco Gringoli exploits the shared hardware between Bluetooth and WiFi in combo chips (e.g., Broadcom BCM4375, used in iPhone 11 and many Android phones). By exploiting the coexistence interface — a mechanism that allows Bluetooth and WiFi to share the radio — an attacker who has compromised the Bluetooth chip can extract WiFi credentials (PSK, PTK session keys) from the WiFi subsystem. The attack crosses chip isolation boundaries without direct hardware access.",
+    "severity": "HIGH",
+    "cvssScore": 8.0,
+    "recommendation": "Apply vendor firmware updates for Broadcom combo chips. iOS 14.1+ and patched Android firmware address this. Architectural fix requires separate radio ICs.",
+    "affectedVersions": "Broadcom BCM4375 (iPhone 11, many 2019-2021 Android flagships); BCM4377; BCM4387"
+  },
+  {
+    "cveId": "CVE-2020-3702",
+    "protocol": "WPA2",
+    "title": "Qualcomm WLAN Driver Use-After-Free in Station Mode",
+    "description": "A use-after-free vulnerability in Qualcomm WLAN driver (qcacld) when handling station mode association events. A specially crafted sequence of association and disassociation events triggered by a rogue access point can cause the driver to access freed memory, potentially enabling arbitrary code execution in the kernel context. Qualcomm is the dominant WiFi chipset vendor for Android, making this broadly impactful.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply Qualcomm security bulletin QSA-2020-11. Apply Android OEM patches from Samsung, Xiaomi, OnePlus, etc. Update to latest stable Android.",
+    "affectedVersions": "Qualcomm Snapdragon 630, 636, 660, 820, 835, 845, 855; Android devices with qcacld driver before Q4 2020"
+  },
+  {
+    "cveId": "CVE-2023-25012",
+    "protocol": "WPA2",
+    "title": "Linux HID Gadget WiFi Direct Buffer Overflow",
+    "description": "A buffer overflow in the Linux kernel's USB HID Gadget driver that can be triggered via WiFi Direct (P2P) connection establishment in certain Android-like configurations. When a device acts as a USB gadget over WiFi (WiFi Direct emulated USB), crafted connection setup messages can overflow a fixed-size buffer in the gadget stack, potentially leading to kernel privilege escalation.",
+    "severity": "HIGH",
+    "cvssScore": 7.8,
+    "recommendation": "Apply Linux kernel patch. Disable WiFi Direct gadget mode if not required. Update Android to latest security patch.",
+    "affectedVersions": "Linux kernel 5.15–6.2 with USB HID Gadget; specific Android configurations using WiFi Direct for USB emulation"
+  },
+  {
+    "cveId": "CVE-2019-12594",
+    "protocol": "WPA2",
+    "title": "Hostapd EAP-PWD Scalar and Element Validation Bypass",
+    "description": "Hostapd's EAP-PWD implementation does not validate that the received peer scalar and element values are valid (i.e., are on the expected elliptic curve with the correct order). A malicious peer can send invalid scalar/element values that cause the EAP-PWD handshake to complete without a valid password, bypassing authentication entirely. This was independently discovered alongside Dragonblood and affects EAP-PWD in Enterprise WiFi configurations.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.1,
+    "recommendation": "Update hostapd to 2.9 or later. Verify that EAP-PWD implementations validate all received group elements. Consider migrating from EAP-PWD to EAP-TLS.",
+    "affectedVersions": "hostapd 2.0–2.8 with EAP-PWD enabled"
+  },
+  {
+    "cveId": "CVE-2022-42721",
+    "protocol": "WPA2",
+    "title": "Linux mac80211 BSS List Corruption via Beacon Frame",
+    "description": "A list corruption vulnerability in Linux mac80211 when processing beacon frames. During network scanning, a rogue AP can send crafted beacon frames that corrupt an internal linked list structure used for tracking discovered base station sets (BSSes). The corruption can lead to use-after-free conditions and kernel crashes, enabling denial of service or potentially privilege escalation in the WiFi subsystem.",
+    "severity": "HIGH",
+    "cvssScore": 7.1,
+    "recommendation": "Update Linux kernel to 6.0.1+ or 5.15.75+. Apply Android October 2022 security patch. Update all Linux-based embedded devices with WiFi.",
+    "affectedVersions": "Linux kernel mac80211 subsystem before October 2022 patch; Android before 2022-10 patch level"
+  },
+  {
+    "cveId": "CVE-2021-3609",
+    "protocol": "802.11",
+    "title": "Linux can_rcv Race Condition via WiFi-bridged CAN Frames",
+    "description": "A race condition in the Linux kernel's CAN (Controller Area Network) implementation when processing frames bridged over WiFi in automotive environments. When CAN frames are bridged over a WiFi connection (common in automotive IoT gateways), concurrent processing of incoming CAN frames can trigger a use-after-free in the sk_buff handling, potentially enabling kernel privilege escalation. Particularly relevant in connected vehicle architectures.",
+    "severity": "HIGH",
+    "cvssScore": 7.0,
+    "recommendation": "Update Linux kernel to 5.13.4 or later. Isolate CAN-to-WiFi bridges with proper locking. Apply distribution-specific kernel patches.",
+    "affectedVersions": "Linux kernel 5.x with CAN subsystem; automotive Linux gateways bridging CAN over WiFi"
+  },
+  {
+    "cveId": "CVE-2016-0801",
+    "protocol": "WPA2",
+    "title": "Android Broadcom WiFi Heap Buffer Overflow in SSID Handling",
+    "description": "A heap buffer overflow in Android's Broadcom WiFi driver (bcmdhd) when processing SSID fields in proximity detection service frames. A specially crafted SSID in a WiFi beacon frame can overflow a heap buffer, enabling remote code execution in the context of the WiFi driver process. This vulnerability was discovered by Google Project Zero and demonstrates the risk of processing untrusted SSIDs without proper length validation.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Apply Android February 2016 security patch. Update to Android 6.0.1 or later. Apply Broadcom driver updates.",
+    "affectedVersions": "Android 4.4.4–6.x with Broadcom BCM WiFi chipsets; Nexus 5, 6, 6P, Nexus Player before February 2016 patch"
+  },
+  {
+    "cveId": "WEP-DEPRECATED",
+    "protocol": "WEP",
+    "title": "WEP Protocol Fundamentally Broken - All Attacks",
+    "description": "WEP (Wired Equivalent Privacy) is fundamentally and irreparably broken. IEEE 802.11 formally deprecated WEP in 2004. The protocol uses RC4 stream cipher with a 24-bit IV, a broken key scheduling algorithm, and CRC32 as an integrity check (which provides no cryptographic security). Collectively, the FMS, PTW, ChopChop, and Fragmentation attacks mean any WEP network can be compromised in minutes with freely available tools. WEP provides no meaningful security protection.",
+    "severity": "CRITICAL",
+    "cvssScore": 10.0,
+    "recommendation": "Migrate to WPA3-SAE immediately. At minimum, deploy WPA2-AES. WEP cannot be patched or fixed — the protocol itself must be replaced. Remove all WEP-only devices from the network.",
+    "affectedVersions": "All WEP implementations (IEEE 802.11b, 802.11g, 802.11a with WEP)"
+  },
+  {
+    "cveId": "CVE-2023-52424",
+    "protocol": "WPA2",
+    "title": "SSID Confusion Attack - Network Identity Binding Failure",
+    "description": "Formally documented in 2024 as CVE-2023-52424, the SSID Confusion attack shows that the 802.11 standard and WPA2/WPA3 do not cryptographically bind the SSID to the authentication process. A victim can be tricked into connecting to a network with a different SSID than intended, while using valid credentials. This breaks VPN policies, network firewall rules, and split-tunnel configurations keyed to SSIDs. The attack requires the victim to have credentials valid for both networks.",
+    "severity": "MEDIUM",
+    "cvssScore": 6.8,
+    "recommendation": "Upgrade to WPA3 which will include SSID protection (IEEE 802.11 amendment in progress). Use unique SSIDs per location. Implement certificate pinning in enterprise deployments.",
+    "affectedVersions": "All 802.11 WPA2 and WPA3 implementations (protocol design flaw)"
+  },
+  {
+    "cveId": "CVE-2021-27803",
+    "protocol": "WPA3",
+    "title": "wpa_supplicant P2P Go Negotiation Request Processing DoS",
+    "description": "A vulnerability in wpa_supplicant's processing of WiFi Direct (P2P) GO (Group Owner) Negotiation Request frames. A malformed P2P GO Negotiation Request frame can cause wpa_supplicant to process data past the end of the message, leading to an out-of-bounds read that can cause a crash. This results in denial of service for the WiFi Direct functionality and may affect the overall WiFi stack depending on the implementation.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.9,
+    "recommendation": "Update wpa_supplicant to 2.10 or later. Apply OS vendor patches. Disable WiFi Direct (P2P) functionality if not required.",
+    "affectedVersions": "wpa_supplicant 2.0–2.9 with WiFi Direct (P2P) support enabled"
+  },
+  {
+    "cveId": "CVE-2022-32666",
+    "protocol": "WPA2",
+    "title": "MediaTek MT7921 WiFi Chip Firmware Integer Overflow",
+    "description": "An integer overflow vulnerability in MediaTek MT7921 WiFi chip firmware when processing WiFi 6 (802.11ax) management frames. A specially crafted 802.11ax trigger frame can trigger an integer overflow in the firmware's frame processing logic, leading to a heap buffer overflow. MediaTek MT7921 is widely used in budget laptops (AMD Ryzen platform), Android phones, and routers.",
+    "severity": "HIGH",
+    "cvssScore": 8.2,
+    "recommendation": "Apply MediaTek security patch. Update device firmware via OEM update mechanism. Apply Linux mt76 driver updates. Update Windows driver via Device Manager.",
+    "affectedVersions": "MediaTek MT7921 firmware before Q2 2022 patch; ASUS, Acer, Lenovo laptops with MediaTek WiFi 6"
+  },
+  {
+    "cveId": "DOT11-DEFAULT-CREDENTIALS",
+    "protocol": "WPA2",
+    "title": "Default Router Credentials - Administrative Interface Compromise",
+    "description": "A significant percentage of deployed home and small business routers retain factory-default administrative credentials (admin/admin, admin/password, admin/1234, or device-specific defaults printed on the label). An attacker with access to the WiFi network (including via other vulnerabilities) can access the router's web interface using default credentials, enabling: complete network configuration control, enabling port forwarding, VPN bypass, DNS hijacking, firmware replacement with malicious versions, and credential capture for connected services.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Change default admin credentials immediately on all routers. Use strong, unique passwords for router administration. Disable remote management. Enable HTTPS for router admin interface. Disable Telnet/SSH admin access when not needed.",
+    "affectedVersions": "All routers shipped with default credentials; common in consumer routers from TP-Link, D-Link, Netgear, ASUS, Linksys, Huawei"
+  },
+  {
+    "cveId": "CVE-2024-21762",
+    "protocol": "WPA2",
+    "title": "Fortinet FortiOS WiFi Controller Out-of-Bounds Write",
+    "description": "An out-of-bounds write vulnerability in Fortinet FortiOS WiFi controller component when processing malformed WiFi association requests. An attacker on the managed WiFi network can send crafted 802.11 association frames to the FortiGate wireless controller, triggering an out-of-bounds write that can lead to remote code execution on the FortiOS management plane. This is particularly dangerous as it allows pivoting from the WiFi segment to the security management infrastructure.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Upgrade FortiOS to 7.4.3+, 7.2.7+, or 7.0.14+. Apply Fortinet PSIRT advisory FG-IR-24-015. Implement network segmentation between WiFi management and production networks.",
+    "affectedVersions": "FortiOS 7.0.x < 7.0.14, 7.2.x < 7.2.7, 7.4.x < 7.4.3"
+  },
+  {
+    "cveId": "CVE-2019-15065",
+    "protocol": "WPA2",
+    "title": "Cisco Aironet AP Denial of Service via Malformed CAPWAP Frames",
+    "description": "A denial-of-service vulnerability in Cisco Aironet Access Points when processing malformed CAPWAP (Control And Provisioning of Wireless Access Points) discovery request messages. An unauthenticated attacker on the same network segment can send crafted CAPWAP frames to cause the AP to reload unexpectedly, disrupting all associated WiFi clients. The vulnerability exists in the CAPWAP packet processing code before proper length validation.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Apply Cisco security advisory cisco-sa-20190925-capwap-dos. Upgrade Cisco Aironet firmware to patched version. Implement CAPWAP frame filtering at the network boundary.",
+    "affectedVersions": "Cisco Aironet 1800, 2800, 3800, 4800 series; Cisco IOS XE before 16.11.1"
+  },
+  {
+    "cveId": "WPA3-DRAGONFLY-TIMING",
+    "protocol": "WPA3",
+    "title": "WPA3-SAE Dragonfly Timing Side-Channel on Brainpool Curves",
+    "description": "WPA3-SAE implementations using Brainpool elliptic curves are vulnerable to timing side-channel attacks. When using Brainpool P-256 or P-384 curves for SAE's password encoding (hunting-and-pecking algorithm), the number of iterations required varies depending on the password and MAC addresses. By measuring response timing across many authentication attempts, an attacker can statistically recover information about the password, enabling offline dictionary attacks. This timing leakage is inherent to the hunting-and-pecking algorithm with Brainpool curves.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Use NIST P-256/P-384 curves instead of Brainpool in SAE configurations. Apply patches that implement constant-time hash-to-curve (H2C) per draft-irtf-cfrg-hash-to-curve. Update to IEEE 802.11-2020 compliant firmware.",
+    "affectedVersions": "WPA3-SAE implementations using Brainpool curves before constant-time patch; hostapd/wpa_supplicant < 2.10"
+  },
+  {
+    "cveId": "CVE-2020-26141",
+    "protocol": "WPA2",
+    "title": "FragAttacks - Non-Validated Fragmented TKIP Frames",
+    "description": "A FragAttacks vulnerability where certain WiFi implementations do not validate the MIC (Message Integrity Check) of fragmented TKIP frames. This allows an attacker to modify the last fragment of a fragmented TKIP packet without detection, as the MIC is only checked after reassembly, but certain implementations fail to check it on individual fragments. Enables injection of modified data into TKIP-encrypted communications.",
+    "severity": "MEDIUM",
+    "cvssScore": 6.5,
+    "recommendation": "Disable TKIP — use AES/CCMP only. Apply vendor May 2021 FragAttacks patches. Ensure MIC validation on all reassembled fragments.",
+    "affectedVersions": "WiFi implementations using TKIP without proper fragment MIC validation; deprecated but still-deployed WPA-TKIP networks"
+  },
+  {
+    "cveId": "CVE-2021-30004",
+    "protocol": "WPA3",
+    "title": "wpa_supplicant Unexpected WPA3-SAE Confirm Before Commit DoS",
+    "description": "A vulnerability in wpa_supplicant where receiving an unexpected SAE Confirm message before a SAE Commit message causes the daemon to dereference a NULL pointer and crash. An unauthenticated attacker within WiFi range can send a crafted SAE Confirm frame to any WPA3-capable client running wpa_supplicant, causing an immediate WiFi daemon crash and disconnection. The attack is trivially repeatable, maintaining continuous denial of service.",
+    "severity": "MEDIUM",
+    "cvssScore": 5.9,
+    "recommendation": "Update wpa_supplicant to 2.10 or later. Apply OS vendor patches. Verify SAE state machine enforces message ordering.",
+    "affectedVersions": "wpa_supplicant 2.8–2.9 with SAE support; Linux systems and Android with affected wpa_supplicant"
+  },
+  {
+    "cveId": "CVE-2023-37379",
+    "protocol": "WPA2",
+    "title": "Aruba Access Point Unauthenticated RCE via WiFi Management Frames",
+    "description": "An unauthenticated remote code execution vulnerability in Aruba Networks Access Point firmware when processing certain 802.11 management frames. A specially crafted management frame sent to an affected Aruba AP can trigger a stack-based buffer overflow in the management frame handling code, leading to arbitrary code execution with root privileges. No network authentication is required; the attacker needs only to be within WiFi radio range of the AP.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Upgrade Aruba AP firmware to AOS 8.11.1.2+, 8.10.0.11+, or 8.6.0.24+. Apply HPE Aruba Networks security advisory ARUBA-PSA-2023-008. Implement WIDS to detect management frame anomalies.",
+    "affectedVersions": "Aruba AP firmware before 2023 patch; AOS-8 before 8.11.1.2; IAP (Instant AP) and controller-managed APs"
+  },
+  {
+    "cveId": "CVE-2022-20662",
+    "protocol": "WPA2",
+    "title": "Cisco Catalyst Wireless LAN Controller Cross-Site Scripting via SSID",
+    "description": "A reflected cross-site scripting (XSS) vulnerability in the Cisco Catalyst 9000 Series Wireless LAN Controller (WLC) web management interface when displaying SSID names. An attacker can craft a malicious SSID containing JavaScript payload characters; when a network administrator views the associated stations list or rogue AP list in the WLC web interface, the malicious SSID is rendered, executing arbitrary JavaScript in the administrator's browser context. Can be used to steal session cookies or perform actions as the admin.",
+    "severity": "MEDIUM",
+    "cvssScore": 6.1,
+    "recommendation": "Update Cisco IOS XE to 17.9.3 or later. Implement Content Security Policy on the WLC web interface. Restrict admin interface access to trusted management networks only.",
+    "affectedVersions": "Cisco Catalyst 9800 WLC running IOS XE 17.x before 17.9.3"
+  },
+  {
+    "cveId": "WIFI-PMKID-ATTACK",
+    "protocol": "WPA2",
+    "title": "PMKID Hash Capture for Offline PSK Dictionary Attack",
+    "description": "A passive attack technique targeting WPA2-Personal networks using PMKID (Pairwise Master Key Identifier) captured from RSN Information Elements in EAPOL frames. Unlike the traditional 4-way handshake capture, PMKID can be captured from a single beacon or probe response frame from the AP, with no client deauthentication needed. The PMKID = HMAC-SHA1-128(PMK, 'PMK Name' || AP_MAC || Client_MAC) is then subject to GPU-accelerated dictionary attacks using hashcat (hash mode 22000). A weak PSK can be recovered in hours or days.",
+    "severity": "HIGH",
+    "cvssScore": 7.5,
+    "recommendation": "Use a PSK of 20+ random characters or a passphrase of 5+ random words. Upgrade to WPA3-SAE which is immune to offline dictionary attacks. Disable PMKID caching on the AP if supported.",
+    "affectedVersions": "All WPA2-Personal (PSK) networks with guessable passwords"
+  },
+  {
+    "cveId": "CVE-2023-47534",
+    "protocol": "WPA2",
+    "title": "Netgear Router WiFi Authentication Bypass via WAN Interface",
+    "description": "An authentication bypass vulnerability in multiple Netgear router models via a crafted request to the WAN-facing interface when Remote Management is enabled. An attacker can bypass authentication to the router's web interface, gaining administrative access without credentials. Combined with the router's WiFi configuration, this can enable attackers to disable security, change PSK, or enable rogue features.",
+    "severity": "CRITICAL",
+    "cvssScore": 9.8,
+    "recommendation": "Update Netgear firmware to latest version. Disable Remote Management on all routers. Apply Netgear security advisory. Restrict admin access to LAN only.",
+    "affectedVersions": "Netgear R6400, R7000, R8000, R6700, R6900, WNDR3400, WNDR4300 with Remote Management enabled"
+  },
+  {
+    "cveId": "CVE-2022-34169",
+    "protocol": "WPA2",
+    "title": "TP-Link Router WiFi Component Command Injection",
+    "description": "A command injection vulnerability in TP-Link router's WiFi diagnostic component, accessible to authenticated users. A crafted request with shell metacharacters in the WiFi diagnostic parameters (SSID field, channel field) is passed unsanitized to the system() call, enabling arbitrary OS command execution as root. When combined with default credentials or CSRF, this enables unauthenticated remote code execution on the router.",
+    "severity": "HIGH",
+    "cvssScore": 8.8,
+    "recommendation": "Update TP-Link firmware to latest version. Change default router credentials. Disable remote administration. Restrict admin interface to trusted IP addresses.",
+    "affectedVersions": "TP-Link Archer AX21, AX50, AX73, AX90 before 2022 firmware patch"
+  }
 ]
