@@ -65,10 +65,9 @@ class ScanViewModel @Inject constructor(
     private fun loadInterfaces() {
         viewModelScope.launch(Dispatchers.IO) {
             val interfaces = interfaceManager.listInterfaces()
-            val monitorCapable = interfaces.filter { it.supportsMonitor }
             _uiState.value = _uiState.value.copy(
-                interfaces = monitorCapable,
-                selectedInterface = monitorCapable.firstOrNull(),
+                interfaces = interfaces,
+                selectedInterface = interfaces.firstOrNull(),
             )
         }
     }
