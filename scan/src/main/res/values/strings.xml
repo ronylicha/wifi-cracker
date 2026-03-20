@@ -1,0 +1,20 @@
+<resources>
+    <string name="scan_title">WiFi Scanner</string>
+    <string name="scan_start">Start scan</string>
+    <string name="scan_stop">Stop scan</string>
+    <string name="scan_no_networks">No networks discovered</string>
+    <string name="scan_tap_play">Tap the play button to start scanning</string>
+    <string name="scan_interface">Interface</string>
+    <string name="scan_status">Status</string>
+    <string name="scan_no_interface">No interface</string>
+    <string name="scan_networks_count">%d networks</string>
+    <string name="scan_clients_count">%d clients</string>
+    <string name="scan_hidden_network">[Hidden]</string>
+    <string name="scan_no_monitor_hint">No monitor-capable interface found.\nA rooted device with an external WiFi adapter (e.g. Alfa AWUS036ACH) is required for scanning.</string>
+    <string name="network_detail_title">Network Detail</string>
+    <string name="network_info">Network Information</string>
+    <string name="network_vulns">Vulnerabilities (%d)</string>
+    <string name="network_clients">Connected Clients (%d)</string>
+    <string name="network_launch_attack">Launch Attack</string>
+    <string name="scan_back">Back</string>
+</resources>

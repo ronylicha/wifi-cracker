@@ -29,7 +29,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.wificracker.scan.R
 import com.wificracker.scan.model.Network
 import com.wificracker.scan.model.VulnMatch
 import com.wificracker.scan.ui.components.ClientList
@@ -48,10 +50,10 @@ fun NetworkDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(network.ssid.ifBlank { "[Hidden Network]" }) },
+                title = { Text(network.ssid.ifBlank { stringResource(R.string.scan_hidden_network) }) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.scan_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -92,10 +94,10 @@ private fun NetworkInfoCard(network: Network) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Network Information", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.network_info), style = MaterialTheme.typography.titleMedium)
             HorizontalDivider()
             InfoRow("BSSID", network.bssid)
-            InfoRow("SSID", network.ssid.ifBlank { "[Hidden]" })
+            InfoRow("SSID", network.ssid.ifBlank { stringResource(R.string.scan_hidden_network) })
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Encryption", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 EncryptionBadge(encryption = network.encryption)
@@ -120,7 +122,7 @@ private fun VulnerabilitiesCard(vulnMatches: List<VulnMatch>) {
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Vulnerabilities (${vulnMatches.size})", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.network_vulns, vulnMatches.size), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.error)
             }
             HorizontalDivider()
             vulnMatches.forEach { vuln ->
@@ -153,7 +155,7 @@ private fun ClientsCard(network: Network) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Connected Clients (${network.clients.size})", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.network_clients, network.clients.size), style = MaterialTheme.typography.titleMedium)
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             ClientList(clients = network.clients)
         }
@@ -169,7 +171,7 @@ private fun ActionButtons(onAttack: () -> Unit) {
     ) {
         Icon(Icons.Default.Security, contentDescription = null)
         Spacer(modifier = Modifier.padding(4.dp))
-        Text("Launch Attack")
+        Text(stringResource(R.string.network_launch_attack))
     }
 }
 

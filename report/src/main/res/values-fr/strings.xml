@@ -1,0 +1,23 @@
+<resources>
+    <string name="report_title">Rapport</string>
+    <string name="report_mission_info">Informations mission</string>
+    <string name="report_mission_title">Titre de la mission</string>
+    <string name="report_scope">Perimetre</string>
+    <string name="report_company_profile">Profil entreprise</string>
+    <string name="report_company_name">Nom de l\'entreprise</string>
+    <string name="report_contact_email">Email de contact</string>
+    <string name="report_client">Client</string>
+    <string name="report_client_company">Entreprise cliente</string>
+    <string name="report_client_contact">Contact client</string>
+    <string name="report_findings">Resultats (%d)</string>
+    <string name="report_no_findings">Aucun resultat. Les resultats sont generes automatiquement depuis les modules scan/attaque/crack.</string>
+    <string name="report_generate">Generer le rapport</string>
+    <string name="report_export_pdf">Exporter PDF</string>
+    <string name="report_security_grade">Note de securite :</string>
+    <string name="report_exec_summary">Synthese executive</string>
+    <string name="report_top_findings">Resultats principaux</string>
+    <string name="report_exported">Rapport exporte !</string>
+    <string name="report_back">Retour</string>
+    <string name="report_next">Suivant</string>
+    <string name="report_remove">Supprimer</string>
+</resources>

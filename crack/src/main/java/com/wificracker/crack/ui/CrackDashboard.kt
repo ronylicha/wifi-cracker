@@ -10,8 +10,10 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wificracker.crack.R
 import com.wificracker.crack.model.CrackStrategy
 import com.wificracker.crack.model.CrackStatus
 import com.wificracker.crack.ui.components.ProgressGauge
@@ -22,7 +24,7 @@ fun CrackDashboard(viewModel: CrackViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Crack") }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.crack_title)) }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)) },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { if (state.isRunning) viewModel.stopCrack() else viewModel.startCrack() },
@@ -31,9 +33,9 @@ fun CrackDashboard(viewModel: CrackViewModel = hiltViewModel()) {
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            OutlinedTextField(value = state.capturePath, onValueChange = { viewModel.setCapture(it) }, label = { Text("Capture file path") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = state.capturePath, onValueChange = { viewModel.setCapture(it) }, label = { Text(stringResource(R.string.crack_capture_path)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
 
-            Text("Strategy", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.crack_strategy), style = MaterialTheme.typography.titleMedium)
             CrackStrategy.entries.forEach { strategy ->
                 Card(
                     modifier = Modifier.fillMaxWidth().clickable { viewModel.selectStrategy(strategy) },
@@ -47,7 +49,7 @@ fun CrackDashboard(viewModel: CrackViewModel = hiltViewModel()) {
             }
 
             if (state.selectedStrategy == CrackStrategy.DICTIONARY || state.selectedStrategy == CrackStrategy.RULE_BASED) {
-                Text("Wordlist", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.crack_wordlist), style = MaterialTheme.typography.titleMedium)
                 state.wordlists.forEach { wl ->
                     Card(
                         modifier = Modifier.fillMaxWidth().clickable { viewModel.selectWordlist(wl) },
@@ -61,7 +63,7 @@ fun CrackDashboard(viewModel: CrackViewModel = hiltViewModel()) {
             state.result?.let { result ->
                 Card(colors = CardDefaults.cardColors(containerColor = if (result.success) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(if (result.success) "PASSWORD FOUND!" else "Password not found", style = MaterialTheme.typography.titleMedium)
+                        Text(if (result.success) stringResource(R.string.crack_found) else stringResource(R.string.crack_not_found), style = MaterialTheme.typography.titleMedium)
                         if (result.success) Text(result.password, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
                         Text("Duration: ${result.duration / 1000}s | Keys tested: ${result.keysTested}", style = MaterialTheme.typography.bodySmall)
                     }

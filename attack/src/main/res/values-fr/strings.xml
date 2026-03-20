@@ -1,0 +1,10 @@
+<resources>
+    <string name="attack_title">Attaque</string>
+    <string name="attack_select_type">Type d\'attaque</string>
+    <string name="attack_target">Cible</string>
+    <string name="attack_console">Sortie console</string>
+    <string name="attack_completed">Attaque terminee</string>
+    <string name="attack_failed">Attaque echouee</string>
+    <string name="attack_target_bssid">BSSID cible</string>
+    <string name="attack_target_ssid">SSID cible (optionnel)</string>
+</resources>

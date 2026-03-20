@@ -36,8 +36,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.wificracker.scan.R
 import com.wificracker.scan.model.ScanStatus
 import com.wificracker.scan.ui.components.NetworkCard
 
@@ -52,7 +54,7 @@ fun ScanScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("WiFi Scanner") },
+                title = { Text(stringResource(R.string.scan_title)) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
@@ -67,7 +69,7 @@ fun ScanScreen(
             ) {
                 Icon(
                     imageVector = if (state.isScanning) Icons.Default.Stop else Icons.Default.PlayArrow,
-                    contentDescription = if (state.isScanning) "Stop scan" else "Start scan",
+                    contentDescription = if (state.isScanning) stringResource(R.string.scan_stop) else stringResource(R.string.scan_start),
                 )
             }
         },
@@ -85,7 +87,7 @@ fun ScanScreen(
 
             // Network list
             if (state.scanResult.networks.isEmpty() && !state.isScanning) {
-                EmptyState()
+                EmptyState(hasInterfaces = state.interfaces.isNotEmpty())
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -122,11 +124,11 @@ private fun ScanHeader(state: ScanUiState, onInterfaceSelected: (com.wificracker
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
-                    Text("Interface", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.scan_interface), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     InterfaceSelector(state = state, onSelected = onInterfaceSelected)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.scan_status), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         text = state.scanResult.status.name,
                         style = MaterialTheme.typography.bodyMedium,
@@ -143,8 +145,8 @@ private fun ScanHeader(state: ScanUiState, onInterfaceSelected: (com.wificracker
             if (state.isScanning || state.scanResult.networks.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("${state.scanResult.networks.size} networks", style = MaterialTheme.typography.bodySmall)
-                    Text("${state.scanResult.clients.size} clients", style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.scan_networks_count, state.scanResult.networks.size), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.scan_clients_count, state.scanResult.clients.size), style = MaterialTheme.typography.bodySmall)
                     Text("${state.scanResult.duration / 1000}s", style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -163,7 +165,7 @@ private fun InterfaceSelector(state: ScanUiState, onSelected: (com.wificracker.c
 
     Box {
         OutlinedButton(onClick = { expanded = true }) {
-            Text(state.selectedInterface?.name ?: "No interface")
+            Text(state.selectedInterface?.name ?: stringResource(R.string.scan_no_interface))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             state.interfaces.forEach { iface ->
@@ -177,12 +179,16 @@ private fun InterfaceSelector(state: ScanUiState, onSelected: (com.wificracker.c
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(hasInterfaces: Boolean) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("No networks discovered", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.scan_no_networks), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Tap the play button to start scanning", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = if (hasInterfaces) stringResource(R.string.scan_tap_play) else stringResource(R.string.scan_no_monitor_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

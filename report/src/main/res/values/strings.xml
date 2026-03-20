@@ -1,0 +1,23 @@
+<resources>
+    <string name="report_title">Report</string>
+    <string name="report_mission_info">Mission Information</string>
+    <string name="report_mission_title">Mission Title</string>
+    <string name="report_scope">Scope</string>
+    <string name="report_company_profile">Company Profile</string>
+    <string name="report_company_name">Company Name</string>
+    <string name="report_contact_email">Contact Email</string>
+    <string name="report_client">Client</string>
+    <string name="report_client_company">Client Company</string>
+    <string name="report_client_contact">Client Contact</string>
+    <string name="report_findings">Findings (%d)</string>
+    <string name="report_no_findings">No findings yet. Findings are auto-generated from scan/attack/crack results.</string>
+    <string name="report_generate">Generate Report</string>
+    <string name="report_export_pdf">Export PDF</string>
+    <string name="report_security_grade">Security Grade:</string>
+    <string name="report_exec_summary">Executive Summary</string>
+    <string name="report_top_findings">Top Findings</string>
+    <string name="report_exported">Report Exported!</string>
+    <string name="report_back">Back</string>
+    <string name="report_next">Next</string>
+    <string name="report_remove">Remove</string>
+</resources>

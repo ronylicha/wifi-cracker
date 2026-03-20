@@ -1,0 +1,12 @@
+<resources>
+    <string name="crack_title">Crack</string>
+    <string name="crack_capture_path">Capture file path</string>
+    <string name="crack_strategy">Strategy</string>
+    <string name="crack_wordlist">Wordlist</string>
+    <string name="crack_progress">Progress</string>
+    <string name="crack_speed">Speed</string>
+    <string name="crack_tested">Tested</string>
+    <string name="crack_eta">ETA</string>
+    <string name="crack_found">PASSWORD FOUND!</string>
+    <string name="crack_not_found">Password not found</string>
+</resources>
