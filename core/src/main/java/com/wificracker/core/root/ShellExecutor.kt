@@ -27,7 +27,15 @@ class ShellExecutor @Inject constructor() {
 
     fun executeAsRoot(command: String, timeoutSeconds: Long = 30): ShellResult {
         return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+            // Use su with sh -c via stdin to properly handle shell operators (&&, ||, |, etc.)
+            val process = ProcessBuilder("su").redirectErrorStream(false).start()
+            process.outputStream.bufferedWriter().use { writer ->
+                writer.write(command)
+                writer.newLine()
+                writer.write("exit \$?")
+                writer.newLine()
+                writer.flush()
+            }
             val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
             if (!completed) {
                 process.destroyForcibly()

@@ -135,38 +135,39 @@ private fun TermuxCommandCard(
     missingModules: List<ModuleInfo>,
     onCopy: (String) -> Unit,
 ) {
-    // Build the Termux install command
-    // aircrack-ng was removed from Termux repos — install via .deb from GitHub
-    // Other tools: iw, dnsmasq are in main repo; hcxdumptool/hcxtools/hashcat via root-repo or compile
+    // Build multi-step Termux install command
     val termuxCmd = buildString {
         val hasAircrack = missingModules.any { it.name in listOf("aircrack-ng", "airodump-ng", "aireplay-ng") }
         val hasHcx = missingModules.any { it.name in listOf("hcxdumptool", "hcxpcapngtool") }
         val hasIw = missingModules.any { it.name == "iw" }
         val hasDnsmasq = missingModules.any { it.name == "dnsmasq" }
+        val hasHostapd = missingModules.any { it.name == "hostapd" }
         val hasHashcat = missingModules.any { it.name == "hashcat" }
 
-        // Standard packages first
+        // Build deps (needed for compiling from source)
+        append("pkg install -y git make clang")
+
+        // Standard repos
         val stdPkgs = mutableListOf<String>()
         if (hasIw) stdPkgs.add("iw")
         if (hasDnsmasq) stdPkgs.add("dnsmasq")
-        if (stdPkgs.isNotEmpty()) {
-            append("pkg install -y ${stdPkgs.joinToString(" ")} && ")
-        }
+        if (hasHostapd) stdPkgs.add("hostapd")
+        if (stdPkgs.isNotEmpty()) append(" ${stdPkgs.joinToString(" ")}")
 
-        // Aircrack-ng via .deb
+        // Aircrack-ng via .deb from GitHub
         if (hasAircrack) {
-            append("curl -sLO https://github.com/pitube08642/aircrack-ng-for-termux/releases/download/Aircrack-ng_termux/aircrack-ng_3_1.7_aarch64.deb && dpkg -i aircrack-ng_3_1.7_aarch64.deb && rm aircrack-ng_3_1.7_aarch64.deb")
+            append(" && curl -sLO https://github.com/pitube08642/aircrack-ng-for-termux/releases/download/Aircrack-ng_termux/aircrack-ng_3_1.7_aarch64.deb && dpkg -i aircrack-ng_3_1.7_aarch64.deb && rm -f *.deb")
         }
 
-        // hcxtools / hcxdumptool
+        // hcxtools from source
         if (hasHcx) {
-            if (hasAircrack) append(" && ")
-            append("pkg install -y root-repo && pkg install -y hcxdumptool hcxtools 2>/dev/null || echo 'hcxtools: install manually from source'")
+            append(" && pkg install -y libcurl openssl && git clone https://github.com/ZerBea/hcxdumptool.git && cd hcxdumptool && make && cp hcxdumptool \$PREFIX/bin/ && cd .. && rm -rf hcxdumptool")
+            append(" && git clone https://github.com/ZerBea/hcxtools.git && cd hcxtools && make && cp hcxpcapngtool \$PREFIX/bin/ && cd .. && rm -rf hcxtools")
         }
 
-        // hashcat
+        // hashcat from source
         if (hasHashcat) {
-            append(" && pkg install -y hashcat 2>/dev/null || echo 'hashcat: install manually'")
+            append(" && git clone https://github.com/hashcat/hashcat.git && cd hashcat && make && cp hashcat \$PREFIX/bin/ && cd .. && rm -rf hashcat")
         }
     }
 
