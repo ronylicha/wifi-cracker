@@ -22,6 +22,9 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.wificracker.app.ui.navigation.BottomNavBar
 import com.wificracker.app.ui.navigation.BottomNavTab
+import com.wificracker.attack.ui.AttackDashboard
+import com.wificracker.crack.ui.CrackDashboard
+import com.wificracker.report.ui.ReportDashboard
 import com.wificracker.scan.ui.ScanScreen
 
 @Composable
@@ -56,9 +59,9 @@ fun MainDashboard() {
                     },
                 )
             }
-            composable(BottomNavTab.Attack.route) { PlaceholderScreen("Attack") }
-            composable(BottomNavTab.Crack.route) { PlaceholderScreen("Crack") }
-            composable(BottomNavTab.Reports.route) { PlaceholderScreen("Reports") }
+            composable(BottomNavTab.Attack.route) { AttackDashboard() }
+            composable(BottomNavTab.Crack.route) { CrackDashboard() }
+            composable(BottomNavTab.Reports.route) { ReportDashboard() }
             composable("network_detail/{bssid}") { backStackEntry ->
                 val bssid = backStackEntry.arguments?.getString("bssid") ?: return@composable
                 // For now, get network from ScanEngine state (will be improved later)
