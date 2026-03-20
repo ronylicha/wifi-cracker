@@ -111,48 +111,66 @@ class ModulesViewModel @Inject constructor(
     private fun installTermuxPackages(packages: List<String>) {
         val termuxPkg = "/data/data/com.termux/files/usr/bin/pkg"
 
-        // Check if Termux is available
+        // Check if Termux is installed
         val termuxCheck = shellExecutor.executeAsRoot("test -x $termuxPkg && echo found")
         if (!termuxCheck.stdout.contains("found")) {
             appendLog("  Termux not found. Install Termux from F-Droid first.")
             return
         }
 
-        // Get Termux UID to run as Termux user (pkg/apt refuse root)
-        val uidResult = shellExecutor.executeAsRoot("stat -c '%U' /data/data/com.termux/files/usr/bin/pkg")
-        val termuxUser = uidResult.stdout.trim().ifBlank { "u0_a373" }
+        // Launch Termux via am broadcast with RUN_COMMAND intent
+        // This runs the command inside Termux's own context (network, DNS, etc.)
+        val pkgList = packages.joinToString(" ")
+        val installCmd = "pkg update -y && pkg install -y $pkgList"
+        val logFile = "/data/local/tmp/wificracker/termux_install.log"
 
-        val termuxEnv = "HOME=/data/data/com.termux/files/home " +
-            "PREFIX=/data/data/com.termux/files/usr " +
-            "LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib " +
-            "TMPDIR=/data/data/com.termux/files/usr/tmp " +
-            "PATH=/data/data/com.termux/files/usr/bin"
+        appendLog("  Launching Termux to install: $pkgList")
+        appendLog("  This will open Termux on your screen...")
 
-        // Update repos first
-        appendLog("  Updating Termux repos...")
-        val updateResult = shellExecutor.executeAsRoot(
-            "su $termuxUser -c '$termuxEnv /data/data/com.termux/files/usr/bin/apt update -y 2>&1'",
-            timeoutSeconds = 120,
+        // Use am to send RUN_COMMAND to Termux
+        val amResult = shellExecutor.executeAsRoot(
+            "am broadcast --user 0 " +
+            "-n com.termux/.app.TermuxOpenReceiver " +
+            "-a com.termux.RUN_COMMAND " +
+            "--es com.termux.RUN_COMMAND_PATH /data/data/com.termux/files/usr/bin/bash " +
+            "--esa com.termux.RUN_COMMAND_ARGUMENTS '-c','$installCmd 2>&1 | tee $logFile; echo DONE >> $logFile' " +
+            "--es com.termux.RUN_COMMAND_WORKDIR /data/data/com.termux/files/home " +
+            "2>&1",
         )
-        if (!updateResult.isSuccess) {
-            appendLog("  ✗ Repo update failed. Open Termux manually and run: termux-change-repo")
-            appendLog("  Then select a working mirror and retry.")
-            return
+
+        if (!amResult.isSuccess) {
+            // Fallback: try launching Termux with a script
+            appendLog("  Intent failed, trying script method...")
+            shellExecutor.executeAsRoot("mkdir -p $INSTALL_DIR")
+            shellExecutor.executeAsRoot("echo '#!/data/data/com.termux/files/usr/bin/bash\n$installCmd 2>&1 | tee $logFile\necho DONE >> $logFile' > /data/local/tmp/termux_run.sh && chmod 755 /data/local/tmp/termux_run.sh")
+            shellExecutor.executeAsRoot(
+                "am start -n com.termux/.app.TermuxActivity 2>&1",
+            )
+            appendLog("  Termux opened. Run this in Termux:")
+            appendLog("  bash /data/local/tmp/termux_run.sh")
         }
 
-        // Install each package as Termux user
-        for (pkg in packages) {
-            appendLog("  Installing: $pkg")
-            val result = shellExecutor.executeAsRoot(
-                "su $termuxUser -c '$termuxEnv /data/data/com.termux/files/usr/bin/apt install -y $pkg 2>&1'",
-                timeoutSeconds = 300,
-            )
-            if (result.isSuccess && !result.stdout.contains("Unable to locate")) {
-                appendLog("  ✓ $pkg installed")
-            } else {
-                appendLog("  ✗ $pkg failed — may not be in Termux repos")
+        // Wait for installation to complete (poll log file)
+        appendLog("  Waiting for Termux installation...")
+        shellExecutor.executeAsRoot("mkdir -p $INSTALL_DIR && rm -f $logFile")
+        var waited = 0
+        val maxWait = 300 // 5 minutes
+        while (waited < maxWait) {
+            Thread.sleep(3000)
+            waited += 3
+            val logCheck = shellExecutor.executeAsRoot("cat $logFile 2>/dev/null")
+            if (logCheck.stdout.contains("DONE")) {
+                appendLog("  ✓ Termux installation completed!")
+                // Show last lines of log
+                val lastLines = logCheck.stdout.lines().takeLast(5).joinToString("\n")
+                appendLog("  $lastLines")
+                return
+            }
+            if (waited % 15 == 0) {
+                appendLog("  Still installing... (${waited}s)")
             }
         }
+        appendLog("  ⚠ Timeout waiting for Termux. Check Termux manually.")
     }
 
     private fun tryInstallMethods(name: String): Boolean {
