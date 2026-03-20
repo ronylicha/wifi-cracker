@@ -19,6 +19,8 @@ data class ChipsetMonitorCapability(
     val monitorMethod: String,
     val requiresPatch: Boolean = false,
     val patchInstalled: Boolean = false,
+    val supportsRawTx: Boolean = false,
+    val patchVersion: Int = 0,
 )
 
 @Singleton
@@ -56,13 +58,28 @@ class ChipsetMonitorHelper @Inject constructor(
         if (mtk.isNotBlank()) {
             val patchCheck = shellExecutor.executeAsRoot("sha256sum /vendor/lib/modules/wlan_drv_gen4m_6878.ko")
             val isPatched = patchCheck.stdout.contains("1551f37b6b3882505a9a30229aa6f768d8b01589d5c3e3366e1c653f43d66d48")
+            // Check cfg80211 patch (v4: raw TX support)
+            val cfg80211Check = shellExecutor.executeAsRoot("sha256sum /vendor/lib/modules/cfg80211.ko")
+            val hasCfg80211Patch = cfg80211Check.stdout.contains("6313f82e09073087")
+            val version = when {
+                isPatched && hasCfg80211Patch -> 4
+                isPatched -> 3
+                else -> 0
+            }
+            val method = when (version) {
+                4 -> "MTK ICS + promiscuous + deauth + raw TX (v4)"
+                3 -> "MTK ICS + promiscuous + deauth (v3)"
+                else -> "Not supported (firmware locked)"
+            }
             return ChipsetMonitorCapability(
                 vendor = WifiChipVendor.MEDIATEK,
                 chipName = "MediaTek $mtk",
                 supportsInternalMonitor = isPatched,
-                monitorMethod = if (isPatched) "MTK ICS capture (patched driver)" else "Not supported (firmware locked)",
+                monitorMethod = method,
                 requiresPatch = !isPatched,
                 patchInstalled = isPatched,
+                supportsRawTx = hasCfg80211Patch,
+                patchVersion = version,
             )
         }
 

