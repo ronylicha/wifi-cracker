@@ -39,6 +39,10 @@
     <string name="modules_install_all">Installer tous les modules manquants</string>
     <string name="modules_install">Installer</string>
     <string name="modules_log">Journal d\'installation</string>
+    <string name="modules_termux_title">Installer via Termux</string>
+    <string name="modules_termux_hint">Ouvrez Termux et collez cette commande pour installer les outils manquants :</string>
+    <string name="modules_copy">Copier</string>
+    <string name="modules_copied">Commande copiee dans le presse-papier</string>
     <string name="wordlists_title">Listes de mots</string>
     <string name="wordlists_installed">Installees</string>
     <string name="wordlists_available">Disponibles au telechargement</string>

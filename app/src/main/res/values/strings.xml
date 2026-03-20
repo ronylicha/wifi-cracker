@@ -39,6 +39,10 @@
     <string name="modules_install_all">Install all missing modules</string>
     <string name="modules_install">Install</string>
     <string name="modules_log">Install Log</string>
+    <string name="modules_termux_title">Install via Termux</string>
+    <string name="modules_termux_hint">Open Termux and paste this command to install missing tools:</string>
+    <string name="modules_copy">Copy</string>
+    <string name="modules_copied">Command copied to clipboard</string>
     <string name="wordlists_title">Wordlists</string>
     <string name="wordlists_installed">Installed</string>
     <string name="wordlists_available">Available for download</string>
