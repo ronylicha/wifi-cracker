@@ -11,7 +11,8 @@ class InterfaceManagerTest {
     private val shellExecutor = mockk<ShellExecutor>()
     private val chipsetDetector = mockk<ChipsetDetector>()
     private val chipsetMonitorHelper = mockk<ChipsetMonitorHelper>()
-    private val manager = InterfaceManager(shellExecutor, chipsetDetector, chipsetMonitorHelper)
+    private val usbWifiDetector = mockk<UsbWifiDetector>()
+    private val manager = InterfaceManager(shellExecutor, chipsetDetector, chipsetMonitorHelper, usbWifiDetector)
 
     @Test fun `listInterfaces parses iw dev output`() {
         every { shellExecutor.executeAsRoot("iw dev 2>/dev/null") } returns ShellResult(0, "phy#0\n    Interface wlan0\n        addr aa:bb:cc:dd:ee:ff\n        type managed", "")
@@ -28,6 +29,7 @@ class InterfaceManagerTest {
         every { chipsetMonitorHelper.detectChipVendor() } returns ChipsetMonitorCapability(WifiChipVendor.MEDIATEK, "MediaTek gen4m_6878", false, "Not supported")
         every { shellExecutor.executeAsRoot("cat /sys/class/net/wlan0/address 2>/dev/null") } returns ShellResult(0, "c2:66:4b:f2:b3:93", "")
         every { shellExecutor.executeAsRoot("cat /sys/class/net/wlan0/type 2>/dev/null") } returns ShellResult(0, "1", "")
+        every { usbWifiDetector.detectUsbAdapters() } returns emptyList()
         val interfaces = manager.listInterfaces()
         assertEquals(1, interfaces.size)
         assertEquals("wlan0", interfaces[0].name)

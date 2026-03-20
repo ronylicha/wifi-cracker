@@ -20,4 +20,11 @@
     <string name="scan_chipset">Chipset</string>
     <string name="scan_monitor_supported">Internal monitor mode supported</string>
     <string name="scan_monitor_not_supported">Internal monitor not supported - use USB adapter</string>
+    <string name="scan_usb_detected">USB WiFi adapter detected</string>
+    <string name="scan_channel">Channel</string>
+    <string name="scan_packets">%d packets</string>
+    <string name="scan_export">Export</string>
+    <string name="scan_export_pcap">Export PCAP</string>
+    <string name="scan_export_json">Export JSON</string>
+    <string name="scan_exported">Exported to: %s</string>
 </resources>

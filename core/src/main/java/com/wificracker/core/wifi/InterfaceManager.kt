@@ -9,6 +9,7 @@ class InterfaceManager @Inject constructor(
     private val shellExecutor: ShellExecutor,
     private val chipsetDetector: ChipsetDetector,
     private val chipsetMonitorHelper: ChipsetMonitorHelper,
+    private val usbWifiDetector: UsbWifiDetector,
 ) {
 
     fun listInterfaces(): List<WifiInterface> {
@@ -95,6 +96,21 @@ class InterfaceManager @Inject constructor(
                     isMonitorMode = isMonitor,
                 )
             )
+        }
+
+        // Also detect USB WiFi adapters
+        val usbAdapters = usbWifiDetector.detectUsbAdapters()
+        for (usb in usbAdapters) {
+            if (interfaces.none { it.name == usb.interfaceName }) {
+                interfaces.add(WifiInterface(
+                    name = usb.interfaceName,
+                    macAddress = shellExecutor.executeAsRoot("cat /sys/class/net/${usb.interfaceName}/address 2>/dev/null").stdout.trim(),
+                    chipset = usb.chipset,
+                    driver = usb.driver,
+                    supportsMonitor = usb.supportsMonitor,
+                    isMonitorMode = false,
+                ))
+            }
         }
 
         return interfaces

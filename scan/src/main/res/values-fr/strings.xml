@@ -20,4 +20,11 @@
     <string name="scan_chipset">Chipset</string>
     <string name="scan_monitor_supported">Mode monitor interne supporte</string>
     <string name="scan_monitor_not_supported">Mode monitor interne non supporte - utilisez un adaptateur USB</string>
+    <string name="scan_usb_detected">Adaptateur WiFi USB detecte</string>
+    <string name="scan_channel">Canal</string>
+    <string name="scan_packets">%d paquets</string>
+    <string name="scan_export">Exporter</string>
+    <string name="scan_export_pcap">Exporter PCAP</string>
+    <string name="scan_export_json">Exporter JSON</string>
+    <string name="scan_exported">Exporte vers : %s</string>
 </resources>
