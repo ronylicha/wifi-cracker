@@ -16,4 +16,8 @@
     <string name="vuln_database">Vulnerability Database</string>
     <string name="audit_log">Audit Log</string>
     <string name="about">About</string>
+    <string name="drawer_title">WiFi Cracker</string>
+    <string name="drawer_version">v1.0.0</string>
+    <string name="about_description">Professional WiFi security auditing tool for authorized penetration testing.</string>
+    <string name="about_license">Open Source - MIT License</string>
 </resources>
