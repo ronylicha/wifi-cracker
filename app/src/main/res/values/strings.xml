@@ -34,4 +34,9 @@
     <string name="audit_purge_confirm">Delete all audit log entries?</string>
     <string name="audit_cancel">Cancel</string>
     <string name="audit_empty">No audit entries yet</string>
+    <string name="modules_title">Modules</string>
+    <string name="modules_refresh">Refresh</string>
+    <string name="modules_install_all">Install all missing modules</string>
+    <string name="modules_install">Install</string>
+    <string name="modules_log">Install Log</string>
 </resources>

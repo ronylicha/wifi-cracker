@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
@@ -167,6 +168,9 @@ fun MainDashboard() {
                 composable("audit_log") {
                     AuditLogScreen(onBack = { navController.popBackStack() })
                 }
+                composable("modules") {
+                    ModulesScreen(onBack = { navController.popBackStack() })
+                }
             }
         }
     }
@@ -234,6 +238,11 @@ private fun DrawerContent(onNavigate: (String) -> Unit) {
             icon = Icons.Default.Info,
             label = stringResource(R.string.about),
             onClick = { onNavigate("about") },
+        )
+        DrawerItem(
+            icon = Icons.Default.Build,
+            label = stringResource(R.string.modules_title),
+            onClick = { onNavigate("modules") },
         )
         DrawerItem(
             icon = Icons.Default.Settings,

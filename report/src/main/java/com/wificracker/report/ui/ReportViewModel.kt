@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wificracker.report.data.dao.ClientProfileDao
+import com.wificracker.report.data.dao.CompanyProfileDao
 import com.wificracker.report.data.entity.ClientProfileEntity
 import com.wificracker.report.domain.ExportManager
 import com.wificracker.report.domain.ReportGenerator
@@ -38,15 +39,38 @@ class ReportViewModel @Inject constructor(
     private val reportGenerator: ReportGenerator,
     private val exportManager: ExportManager,
     private val clientProfileDao: ClientProfileDao,
+    private val companyProfileDao: CompanyProfileDao,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ReportUiState())
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
 
     init {
+        // Load saved clients
         viewModelScope.launch {
             clientProfileDao.getAllClients().collect { clients ->
                 _uiState.value = _uiState.value.copy(savedClients = clients)
+            }
+        }
+        // Load saved company profile
+        viewModelScope.launch {
+            companyProfileDao.getCompanyProfile().collect { entity ->
+                entity?.let {
+                    _uiState.value = _uiState.value.copy(
+                        companyProfile = CompanyProfile(
+                            id = it.id,
+                            name = it.name,
+                            address = it.address,
+                            siret = it.siret,
+                            contactName = it.contactName,
+                            contactEmail = it.contactEmail,
+                            contactPhone = it.contactPhone,
+                            certifications = it.certifications.split(",").filter { c -> c.isNotBlank() },
+                            legalMention = it.legalMention,
+                            logoPath = it.logoPath,
+                        ),
+                    )
+                }
             }
         }
     }

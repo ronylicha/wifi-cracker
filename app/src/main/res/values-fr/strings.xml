@@ -34,4 +34,9 @@
     <string name="audit_purge_confirm">Supprimer toutes les entrees du journal ?</string>
     <string name="audit_cancel">Annuler</string>
     <string name="audit_empty">Aucune entree dans le journal</string>
+    <string name="modules_title">Modules</string>
+    <string name="modules_refresh">Actualiser</string>
+    <string name="modules_install_all">Installer tous les modules manquants</string>
+    <string name="modules_install">Installer</string>
+    <string name="modules_log">Journal d\'installation</string>
 </resources>
