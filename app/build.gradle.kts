@@ -46,6 +46,9 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation(project(":scan"))
+    implementation(project(":attack"))
+    implementation(project(":crack"))
+    implementation(project(":report"))
 
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)

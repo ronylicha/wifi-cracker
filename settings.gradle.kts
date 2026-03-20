@@ -18,3 +18,6 @@ rootProject.name = "WifiCracker"
 include(":app")
 include(":core")
 include(":scan")
+include(":attack")
+include(":crack")
+include(":report")

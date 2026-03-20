@@ -15,3 +15,6 @@
 /core/schemas
 /scan/build
 .kotlin
+/attack/build
+/crack/build
+/report/build
