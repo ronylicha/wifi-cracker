@@ -1,6 +1,6 @@
 # Monitor Mode WiFi — MediaTek MT6878 (Dimensity 7300)
 
-> **Version patch**: v2 (ICS capture + mode promiscuous)
+> **Version patch**: v3 (ICS capture + mode promiscuous + deauth injection)
 > **Date**: 2026-03-20
 > **Chipset**: MediaTek MT6878 (Dimensity 7300), co-processeur WiFi MT6631 (NDS32 Andes N9)
 > **Device**: Unihertz Titan 2 (`g71v78c2k_dfl_eea`), Android 16 (API 36)
@@ -11,7 +11,7 @@
 
 ## TL;DR
 
-Un patch de **148 bytes** dans le driver kernel (7 MB) active le monitor mode WiFi complet : capture de toutes les trames 802.11 (beacons, data, EAPOL handshakes, control frames) y compris celles d'autres devices via le mode promiscuous. Distribue comme module Magisk, zero regression sur le WiFi normal.
+Un patch de **152 bytes** (148 bytes de trampolines + 4 bytes de NOP) dans le driver kernel (7 MB) active le monitor mode WiFi complet : capture de toutes les trames 802.11, mode promiscuous pour les EAPOL/handshakes d'autres devices, et **injection de deauth** via la commande `AP_STA_DISASSOC`. Distribue comme module Magisk, zero regression sur le WiFi normal.
 
 ---
 
@@ -30,7 +30,7 @@ adb reboot
 
 ```bash
 adb shell "su -c 'sha256sum /vendor/lib/modules/wlan_drv_gen4m_6878.ko'"
-# Attendu: f646d28573cb32e3ae9378ae604c86613320aacfe88ad35f684ba713f6602c30
+# Attendu: 1551f37b6b3882505a9a30229aa6f768d8b01589d5c3e3366e1c653f43d66d48
 ```
 
 ### Desinstallation (rollback)
@@ -66,6 +66,15 @@ adb shell "su -c '/data/local/tmp/ics_enable 0'"
 
 Le WiFi reste fonctionnel pendant et apres la capture.
 
+### Envoyer un deauth (v3)
+
+```bash
+# Deauth un client specifique (le deconnecte de son AP)
+adb shell "su -c '/data/local/tmp/wpa_driver \"AP_STA_DISASSOC Mac=AA:BB:CC:DD:EE:FF\"'"
+```
+
+Le deauth est envoye via le chemin TX interne du driver (`mboxSendMsg` → `authSendDeauthFrame` → `nicTxEnqueueMsdu`). La commande `AP_STA_DISASSOC` est normalement reservee au mode AP, mais le patch v3 NOP le check de role pour qu'elle fonctionne aussi en mode STA.
+
 ---
 
 ## Ce que le patch capture
@@ -81,7 +90,11 @@ Le WiFi reste fonctionnel pendant et apres la capture.
 | **EAPOL / 4-way handshake** | **non** | **oui** |
 | **Frames unicast entre tiers** | **non** | **oui** |
 
-Le v2 ajoute le **mode promiscuous** : le firmware forward TOUTES les trames recues sur le canal actif, pas seulement celles destinees a notre MAC.
+Le v2 ajoute le **mode promiscuous**, le v3 ajoute **l'injection deauth**.
+
+| Type de trame | v3 |
+|---------------|-----|
+| Injection deauth (TX) | **oui** |
 
 ---
 
@@ -188,6 +201,23 @@ trampoline_2 (.text + 0x222BE4):
 ```
 
 Le firmware recoit la commande **0x0A (10)** avec la valeur **0x0F** et configure le filtre RX hardware pour accepter TOUTES les trames : unicast, multicast, broadcast, y compris celles destinees a d'autres MAC.
+
+#### Trampoline 3 — Mode promiscuous OFF (48 bytes)
+
+#### Patch 4 — Deauth injection (4 bytes)
+
+NOP du role check dans `priv_driver_set_ap_sta_disassoc`.
+
+```
+Avant:                              Apres:
+b0a94:  bl  mtk_Netdev_To_RoleIdx   b0a94:  bl  mtk_Netdev_To_RoleIdx
+b0a98:  cbnz w0, skip_error         b0a98:  nop                     ← PATCHE
+b0a9c:  ...continue...              b0a9c:  ...continue...
+```
+
+La commande `AP_STA_DISASSOC Mac=<target>` est normalement reservee au mode AP (Soft-AP/hotspot). Le check `mtk_Netdev_To_RoleIdx` verifie que l'interface est un AP. En le NOPant, la commande fonctionne aussi en mode STA, permettant d'envoyer des deauth a n'importe quel client sur le meme canal.
+
+Le deauth passe par : `priv_driver_set_ap_sta_disassoc` → `parseValueInString("Mac=")` → `cnmMemAllocX` → `mboxSendMsg` → state machine P2P/AP → `authSendDeauthFrame` → `nicTxEnqueueMsdu` → firmware TX.
 
 #### Trampoline 3 — Mode promiscuous OFF (48 bytes)
 
@@ -360,7 +390,7 @@ Le patch depend des offsets de fonctions dans le binaire. Un driver de version d
 ## Limites connues
 
 1. **Canal unique** : capture sur le canal courant. Channel hopping necessite deconnexion WiFi.
-2. **Pas d'injection TX** : le patch est RX only. Le driver n'a pas de fonction `nicTxRawFrame`. L'envoi de deauth/injection necessite un patch supplementaire.
+2. **Injection TX limitee au deauth** : le patch v3 permet l'envoi de deauth via `AP_STA_DISASSOC`. L'injection de frames 802.11 arbitraires (raw TX) n'est pas supportee.
 3. **Specifique MT6878/MT6631** : adapte uniquement au driver exact teste. Autres SoC MediaTek necessitent la meme methodologie (Ghidra + repatch).
 4. **OTA** : une mise a jour systeme remplace le driver. Reinstaller le module Magisk apres.
 
@@ -394,8 +424,8 @@ wifi-cracker/core/.../wifi/
 | Fichier | SHA256 |
 |---------|--------|
 | Driver original | `1b3a2244bd25769a438f57250c5dece29b421a1825c7cd636cffa0d611f8a257` |
-| Driver patche v2 | `f646d28573cb32e3ae9378ae604c86613320aacfe88ad35f684ba713f6602c30` |
-| Module Magisk v2 | `a95095720e4898aecc73834cfe4d63b2bce2799d6c52ed4d46a0a941385221ef` |
+| Driver patche v3 | `1551f37b6b3882505a9a30229aa6f768d8b01589d5c3e3366e1c653f43d66d48` |
+| Module Magisk v3 | `963034c36c73895e90942c69b44bbdeea18e19da2b5be4ddf0c0ffed0b0a32df` |
 
 ---
 
@@ -409,19 +439,15 @@ wifi-cracker/core/.../wifi/
 6. Decouverte : firmware cmd 0x0A (10) = SET_PACKET_FILTER (promiscuous via `wlanoidSetPacketFilter`)
 7. Patch v1 : trampoline ICS (52 bytes) → capture paquets RX
 8. Patch v2 : + trampolines promiscuous enable/disable (2x 48 bytes) → capture ALL frames
-9. Distribution : module Magisk pour install/rollback propre
-10. Validation : 981 paquets 802.11 captures en 5 secondes, 5 reseaux detectes
+9. Decompilation `authSendDeauthFrame` (1604 bytes) et `priv_driver_set_ap_sta_disassoc` (428 bytes)
+10. Decouverte : event ID 0x1B = nicEventSendDeauth, table arEventTable (57 entries)
+11. Patch v3 : NOP du role check dans AP_STA_DISASSOC → deauth injection en mode STA
+12. Distribution : module Magisk v3 pour install/rollback propre
+13. Validation : 981 paquets 802.11 captures en 5 secondes, 5 reseaux detectes
 
 ---
 
 ## Pour aller plus loin
-
-### Injection TX (deauth)
-
-Le driver a `authSendDeauthFrame` @ 0x13807c (fonction reelle). Pour l'injection :
-- Trouver le contexte requis (STA record, BSS info) via Ghidra
-- Ecrire un trampoline T4 qui construit un frame deauth et l'envoie
-- Ou utiliser `wlanSendSetQueryCmd` avec le bon cmd ID pour TX management frames
 
 ### Channel hopping
 

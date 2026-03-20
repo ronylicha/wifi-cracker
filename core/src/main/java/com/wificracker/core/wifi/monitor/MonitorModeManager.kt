@@ -18,7 +18,7 @@ class MonitorModeManager @Inject constructor(
 ) {
     private var mtkCapture: MtkMonitorCapture? = null
     private val mediaTexKernelDriver = "/vendor/lib/modules/wlan_drv_gen4m_6878.ko"
-    private val expectedDriverHash = "f646d28573cb32e3ae9378ae604c86613320aacfe88ad35f684ba713f6602c30"
+    private val expectedDriverHash = "1551f37b6b3882505a9a30229aa6f768d8b01589d5c3e3366e1c653f43d66d48"
 
     suspend fun isPatched(): Boolean {
         return withContext(Dispatchers.IO) {
