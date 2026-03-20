@@ -13,10 +13,11 @@ private data class VulnJson(val cveId: String, val protocol: String, val title: 
 
 @Singleton
 class VulnDatabase @Inject constructor(private val vulnDao: VulnDao) {
-    suspend fun seedIfEmpty(context: Context) {
-        if (vulnDao.count() > 0) return
+    suspend fun seedOrUpdate(context: Context) {
         val json = context.assets.open("vulns.json").bufferedReader().readText()
         val vulns = Json.decodeFromString<List<VulnJson>>(json)
+        val dbCount = vulnDao.count()
+        if (dbCount >= vulns.size) return
         vulnDao.insertAll(vulns.map { v -> VulnEntity(v.cveId, v.protocol, v.title, v.description, v.severity, v.cvssScore, v.recommendation, v.affectedVersions) })
     }
 }

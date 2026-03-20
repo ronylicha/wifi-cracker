@@ -19,7 +19,7 @@ class WifiCrackerApp : Application() {
     override fun onCreate() {
         super.onCreate()
         applicationScope.launch {
-            vulnDatabase.seedIfEmpty(this@WifiCrackerApp)
+            vulnDatabase.seedOrUpdate(this@WifiCrackerApp)
         }
     }
 }
