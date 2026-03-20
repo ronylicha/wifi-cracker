@@ -55,7 +55,7 @@ class ChipsetMonitorHelper @Inject constructor(
         val mtk = shellExecutor.executeAsRoot("getprop ro.vendor.wlan.gen").stdout.trim()
         if (mtk.isNotBlank()) {
             val patchCheck = shellExecutor.executeAsRoot("sha256sum /vendor/lib/modules/wlan_drv_gen4m_6878.ko")
-            val isPatched = patchCheck.stdout.contains("aaead92bedc1e69f2642aaa54cb0a314ec3d28fec8781bf2263f4e203310534a")
+            val isPatched = patchCheck.stdout.contains("f646d28573cb32e3ae9378ae604c86613320aacfe88ad35f684ba713f6602c30")
             return ChipsetMonitorCapability(
                 vendor = WifiChipVendor.MEDIATEK,
                 chipName = "MediaTek $mtk",

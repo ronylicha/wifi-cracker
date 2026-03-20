@@ -7,6 +7,8 @@ import com.wificracker.core.util.MacVendorLookup
 import com.wificracker.core.wifi.ChipsetMonitorHelper
 import com.wificracker.core.wifi.MonitorModeManager
 import com.wificracker.core.wifi.WifiChipVendor
+import com.wificracker.core.wifi.monitor.Ieee80211Frame
+import com.wificracker.core.wifi.monitor.MtkMonitorCapture
 import com.wificracker.scan.data.WifiCommandRunner
 import com.wificracker.scan.model.Client
 import com.wificracker.scan.model.EncryptionType
@@ -42,7 +44,9 @@ class ScanEngine @Inject constructor(
     val scanState: StateFlow<ScanResult> = _scanState.asStateFlow()
 
     private var scanJob: Job? = null
+    private var icsJob: Job? = null
     private var currentInterface: String? = null
+    private var mtkCapture: MtkMonitorCapture? = null
 
     suspend fun startScan(interfaceName: String) {
         if (_scanState.value.status == ScanStatus.SCANNING) return
@@ -56,23 +60,27 @@ class ScanEngine @Inject constructor(
 
         auditLogger.log(AuditEntry(action = "SCAN_START", module = "scan", target = interfaceName))
 
-        // Primary method: Android system scan (works everywhere, no monitor mode needed)
-        startAndroidScan(interfaceName)
+        // Start Android system scan (primary — always works)
+        startAndroidScan()
+
+        // Also start ICS capture if MTK patched driver is available (passive monitor)
+        val chipInfo = chipsetMonitorHelper.detectChipVendor()
+        if (chipInfo.vendor == WifiChipVendor.MEDIATEK && chipInfo.patchInstalled) {
+            startIcsCapture()
+        }
     }
 
-    private suspend fun startAndroidScan(interfaceName: String) {
+    private suspend fun startAndroidScan() {
         coroutineScope {
             scanJob = launch {
                 androidScanFlow()
                     .onEach { networks ->
                         _scanState.value = _scanState.value.copy(
-                            networks = networks,
-                            clients = emptyList(),
+                            networks = mergeNetworks(_scanState.value.networks, networks),
                             duration = System.currentTimeMillis() - _scanState.value.timestamp,
                         )
                     }
                     .catch { e ->
-                        _scanState.value = _scanState.value.copy(status = ScanStatus.FAILED)
                         auditLogger.log(AuditEntry(action = "SCAN_ERROR", module = "scan", details = e.message ?: "Error"))
                     }
                     .collect {}
@@ -80,34 +88,68 @@ class ScanEngine @Inject constructor(
         }
     }
 
+    private suspend fun startIcsCapture() {
+        val capture = MtkMonitorCapture(shellExecutor, auditLogger)
+        mtkCapture = capture
+
+        val enabled = capture.enableCapture()
+        if (!enabled) {
+            auditLogger.log(AuditEntry(action = "ICS_ENABLE_FAILED", module = "scan"))
+            return
+        }
+
+        coroutineScope {
+            icsJob = launch(Dispatchers.IO) {
+                capture.startCapture { frame ->
+                    // Convert ICS frames to Network objects and merge
+                    val network = frameToNetwork(frame)
+                    if (network != null) {
+                        _scanState.value = _scanState.value.copy(
+                            networks = mergeNetworks(_scanState.value.networks, listOf(network)),
+                        )
+                    }
+                }.collect { }
+            }
+        }
+    }
+
+    private fun frameToNetwork(frame: Ieee80211Frame): Network? {
+        // addr3 = BSSID for management frames (beacon, probe resp)
+        val bssid = frame.addr3
+        if (bssid.isBlank() || bssid == "00:00:00:00:00:00" || bssid == "FF:FF:FF:FF:FF:FF") return null
+        if (!frame.isBeacon && !frame.isProbeResp) return null
+        return Network(
+            bssid = bssid,
+            ssid = frame.ssid ?: "",
+            channel = frame.channel ?: 0,
+            signalStrength = frame.rssi ?: -50,
+            encryption = EncryptionType.UNKNOWN,
+        )
+    }
+
     private fun androidScanFlow() = flow {
         while (true) {
-            // Trigger a fresh system scan
             shellExecutor.executeAsRoot("cmd wifi start-scan")
             delay(3000)
 
-            // Read scan results
             val result = shellExecutor.executeAsRoot("cmd wifi list-scan-results")
             if (result.isSuccess && result.stdout.isNotBlank()) {
                 val networks = parseAndroidScanResults(result.stdout)
-                if (networks.isNotEmpty()) {
-                    emit(networks)
-                }
+                if (networks.isNotEmpty()) emit(networks)
             }
 
-            delay(5000) // Scan every 8 seconds total
+            delay(5000)
         }
     }.flowOn(Dispatchers.IO)
 
     private fun parseAndroidScanResults(output: String): List<Network> {
         val networks = mutableListOf<Network>()
 
-        for (line in output.lines().drop(1)) { // Skip header line
+        for (line in output.lines().drop(1)) {
             val trimmed = line.trim()
             if (trimmed.isBlank() || !trimmed.contains(":")) continue
 
             try {
-                // Format: BSSID  Frequency  RSSI  Age  SSID  Flags
                 val parts = trimmed.split("\\s+".toRegex(), limit = 6)
                 if (parts.size < 5) continue
 
@@ -116,20 +158,15 @@ class ScanEngine @Inject constructor(
 
                 val frequency = parts[1].trim().toIntOrNull() ?: 0
                 val rssi = parts[2].trim().toIntOrNull() ?: -100
-                val ssid = if (parts.size >= 5) {
-                    // SSID is after Age column, Flags is last
-                    val afterAge = trimmed.substringAfter(parts[3]).trim()
-                    // Split SSID and Flags (flags start with [)
-                    val flagsStart = afterAge.indexOf("[")
-                    if (flagsStart > 0) afterAge.substring(0, flagsStart).trim() else afterAge
-                } else ""
+
+                val afterAge = trimmed.substringAfter(parts[3]).trim()
+                val flagsStart = afterAge.indexOf("[")
+                val ssid = if (flagsStart > 0) afterAge.substring(0, flagsStart).trim() else afterAge
                 val flags = if (trimmed.contains("[")) trimmed.substringAfter("[").substringBeforeLast("]") else ""
 
                 val encryption = parseEncryptionFromFlags(flags)
                 val channel = frequencyToChannel(frequency)
                 val wps = flags.contains("WPS")
-
-                val vendor = macVendorLookup.resolve(bssid)
 
                 networks.add(Network(
                     bssid = bssid,
@@ -139,45 +176,73 @@ class ScanEngine @Inject constructor(
                     signalStrength = rssi,
                     encryption = encryption,
                     wps = wps,
-                    cipher = if (flags.contains("CCMP-256")) "CCMP-256" else if (flags.contains("CCMP")) "CCMP" else if (flags.contains("TKIP")) "TKIP" else "",
-                    authentication = if (flags.contains("SAE")) "SAE" else if (flags.contains("PSK")) "PSK" else if (flags.contains("EAP")) "EAP" else "",
+                    cipher = when {
+                        flags.contains("CCMP-256") -> "CCMP-256"
+                        flags.contains("CCMP") -> "CCMP"
+                        flags.contains("TKIP") -> "TKIP"
+                        else -> ""
+                    },
+                    authentication = when {
+                        flags.contains("SAE") -> "SAE"
+                        flags.contains("PSK") -> "PSK"
+                        flags.contains("EAP") -> "EAP"
+                        else -> ""
+                    },
                 ))
             } catch (_: Exception) { }
         }
 
-        // Deduplicate by BSSID, keep strongest signal
         return networks
             .groupBy { it.bssid }
             .map { (_, nets) -> nets.maxByOrNull { it.signalStrength } ?: nets.first() }
             .sortedByDescending { it.signalStrength }
     }
 
-    private fun parseEncryptionFromFlags(flags: String): EncryptionType {
-        return when {
-            flags.contains("SAE") || flags.contains("WPA3") -> EncryptionType.WPA3
-            flags.contains("RSN") || flags.contains("WPA2") -> EncryptionType.WPA2
-            flags.contains("WPA") -> EncryptionType.WPA
-            flags.contains("WEP") -> EncryptionType.WEP
-            flags.isBlank() || flags.contains("ESS") && !flags.contains("WPA") && !flags.contains("RSN") -> EncryptionType.OPEN
-            else -> EncryptionType.UNKNOWN
-        }
+    private fun parseEncryptionFromFlags(flags: String): EncryptionType = when {
+        flags.contains("SAE") -> EncryptionType.WPA3
+        flags.contains("RSN") || flags.contains("WPA2") -> EncryptionType.WPA2
+        flags.contains("WPA") -> EncryptionType.WPA
+        flags.contains("WEP") -> EncryptionType.WEP
+        !flags.contains("WPA") && !flags.contains("RSN") && !flags.contains("WEP") -> EncryptionType.OPEN
+        else -> EncryptionType.UNKNOWN
     }
 
-    private fun frequencyToChannel(freq: Int): Int {
-        return when {
-            freq in 2412..2484 -> (freq - 2407) / 5
-            freq in 5170..5825 -> (freq - 5000) / 5
-            freq in 5955..7115 -> (freq - 5950) / 5 // WiFi 6E
-            else -> 0
+    private fun frequencyToChannel(freq: Int): Int = when {
+        freq in 2412..2484 -> (freq - 2407) / 5
+        freq in 5170..5825 -> (freq - 5000) / 5
+        freq in 5955..7115 -> (freq - 5950) / 5
+        else -> 0
+    }
+
+    private fun mergeNetworks(existing: List<Network>, incoming: List<Network>): List<Network> {
+        val merged = existing.toMutableList()
+        for (net in incoming) {
+            val idx = merged.indexOfFirst { it.bssid == net.bssid }
+            if (idx >= 0) {
+                val old = merged[idx]
+                merged[idx] = old.copy(
+                    ssid = if (net.ssid.isNotBlank()) net.ssid else old.ssid,
+                    signalStrength = if (net.signalStrength > old.signalStrength) net.signalStrength else old.signalStrength,
+                    encryption = if (net.encryption != EncryptionType.UNKNOWN) net.encryption else old.encryption,
+                    channel = if (net.channel > 0) net.channel else old.channel,
+                    lastSeen = System.currentTimeMillis(),
+                )
+            } else {
+                merged.add(net)
+            }
         }
+        return merged.sortedByDescending { it.signalStrength }
     }
 
     suspend fun stopScan() {
         val iface = currentInterface ?: return
         scanJob?.cancel()
         scanJob = null
+        icsJob?.cancel()
+        icsJob = null
 
-        shellExecutor.executeAsRoot("/data/local/tmp/ics_enable 0 2>/dev/null")
+        mtkCapture?.disableCapture()
+        mtkCapture = null
         commandRunner.stopScan(iface)
 
         _scanState.value = _scanState.value.copy(
@@ -187,9 +252,5 @@ class ScanEngine @Inject constructor(
 
         auditLogger.log(AuditEntry(action = "SCAN_STOP", module = "scan", target = iface, result = "${_scanState.value.networks.size} networks found"))
         currentInterface = null
-    }
-
-    private fun enrichClient(client: Client): Client {
-        return client.copy(vendor = macVendorLookup.resolve(client.macAddress))
     }
 }
