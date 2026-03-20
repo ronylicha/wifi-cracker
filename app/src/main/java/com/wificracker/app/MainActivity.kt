@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.wificracker.app.ui.navigation.AppNavGraph
 import com.wificracker.app.ui.theme.WifiCrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -16,7 +17,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             WifiCrackerTheme {
-                // Navigation will be wired later
+                AppNavGraph()
             }
         }
     }
