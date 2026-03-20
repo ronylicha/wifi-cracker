@@ -20,6 +20,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.wificracker.scan.R
 import com.wificracker.scan.model.ScanStatus
@@ -63,14 +65,27 @@ fun ScanScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (state.isScanning) viewModel.stopScan() else viewModel.startScan()
+                    when {
+                        state.isStarting -> {} // ignore clicks while starting
+                        state.isScanning -> viewModel.stopScan()
+                        else -> viewModel.startScan()
+                    }
                 },
-                containerColor = if (state.isScanning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                containerColor = when {
+                    state.isStarting -> MaterialTheme.colorScheme.surfaceVariant
+                    state.isScanning -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.primary
+                },
             ) {
-                Icon(
-                    imageVector = if (state.isScanning) Icons.Default.Stop else Icons.Default.PlayArrow,
-                    contentDescription = if (state.isScanning) stringResource(R.string.scan_stop) else stringResource(R.string.scan_start),
-                )
+                when {
+                    state.isStarting -> CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 3.dp,
+                    )
+                    state.isScanning -> Icon(Icons.Default.Stop, contentDescription = stringResource(R.string.scan_stop))
+                    else -> Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.scan_start))
+                }
             }
         },
     ) { padding ->
@@ -148,6 +163,29 @@ private fun ScanHeader(state: ScanUiState, onInterfaceSelected: (com.wificracker
                     Text(stringResource(R.string.scan_networks_count, state.scanResult.networks.size), style = MaterialTheme.typography.bodySmall)
                     Text(stringResource(R.string.scan_clients_count, state.scanResult.clients.size), style = MaterialTheme.typography.bodySmall)
                     Text("${state.scanResult.duration / 1000}s", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            // Chipset info
+            if (state.chipsetInfo.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = state.chipsetInfo,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!state.supportsInternalMonitor) {
+                    Text(
+                        text = stringResource(R.string.scan_monitor_not_supported),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.scan_monitor_supported),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
 

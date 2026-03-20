@@ -29,6 +29,7 @@ data class ScanUiState(
     val selectedInterface: WifiInterface? = null,
     val vulnMatches: Map<String, List<VulnMatch>> = emptyMap(),
     val isScanning: Boolean = false,
+    val isStarting: Boolean = false,
     val errorMessage: String? = null,
     val chipsetInfo: String = "",
     val supportsInternalMonitor: Boolean = false,
@@ -78,6 +79,8 @@ class ScanViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     scanResult = scanResult,
                     isScanning = scanResult.status == ScanStatus.SCANNING,
+                    isStarting = if (scanResult.status != ScanStatus.IDLE) false else _uiState.value.isStarting,
+                    errorMessage = if (scanResult.status == ScanStatus.FAILED) "Monitor mode or scan binary unavailable" else _uiState.value.errorMessage,
                 )
                 // Match vulns for discovered networks
                 if (scanResult.networks.isNotEmpty()) {
@@ -96,12 +99,15 @@ class ScanViewModel @Inject constructor(
 
     fun startScan() {
         val iface = _uiState.value.selectedInterface ?: return
-        _uiState.value = _uiState.value.copy(errorMessage = null)
+        _uiState.value = _uiState.value.copy(errorMessage = null, isStarting = true)
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 scanEngine.startScan(iface.name)
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(errorMessage = e.message)
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = e.message ?: "Scan failed",
+                    isStarting = false,
+                )
             }
         }
     }
