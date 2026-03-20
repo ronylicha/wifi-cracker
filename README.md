@@ -55,7 +55,37 @@ _Coming soon_
 | Alfa AWUS036ACM | MT7612U | WiFi 5 | ~40EUR |
 | Alfa AWUS036ACH | RTL8812AU | WiFi 5 | ~35EUR |
 
-> **Note:** Internal WiFi chipsets (Qualcomm, MediaTek) do NOT support monitor mode on most Android devices. An external USB WiFi adapter is required.
+> **Note:** Most internal WiFi chipsets do NOT support monitor mode out of the box. See the chipset compatibility table below.
+
+### Internal WiFi Chipset Compatibility
+
+WiFi Cracker **auto-detects** your chipset and uses the appropriate method:
+
+| Chipset Vendor | Method | Monitor Mode | Notes |
+|----------------|--------|:------------:|-------|
+| **Qualcomm (Snapdragon)** | QCACLD `con_mode=4` | Yes | Native support via driver parameter |
+| **Broadcom (Exynos/Pixel)** | Nexmon firmware patch | Yes | Requires Nexmon installed |
+| **MediaTek (Dimensity)** | ICS capture (patched driver) | Yes* | Requires our custom Magisk module |
+
+*\* MediaTek support requires installing the `mtk_wifi_monitor` Magisk module. See [MediaTek Monitor Mode Guide](docs/MTK_MONITOR_MODE_GUIDE.md).*
+
+### MediaTek Patched Driver (Unihertz Titan 2 / MT6878)
+
+We developed a **custom kernel driver patch** that enables WiFi monitor mode on MediaTek Dimensity 7300 (MT6878) devices. The patch injects 52 bytes of ARM64 trampoline code into the RX path to redirect captured frames to `/dev/fw_log_ics`.
+
+**Quick install:**
+```bash
+# Install Magisk module
+adb push firmware-dump/mtk_wifi_monitor_magisk.zip /data/local/tmp/
+adb shell "su -c 'magisk --install-module /data/local/tmp/mtk_wifi_monitor_magisk.zip'"
+adb reboot
+```
+
+**Documentation:**
+- [MTK Monitor Mode Guide](docs/MTK_MONITOR_MODE_GUIDE.md) — Installation, usage, and technical details
+- [Firmware Analysis](docs/FIRMWARE_ANALYSIS.md) — Complete reverse engineering analysis
+
+**Tested on:** Unihertz Titan 2 (MT6878, Android 16) — 981 packets captured in 5 seconds.
 
 ## Tech Stack
 
@@ -73,12 +103,14 @@ _Coming soon_
 
 ```
 wifi-cracker/
-├── app/          # Main application (navigation, theme, DI)
-├── core/         # Shared: root management, WiFi control, Room DB, logging
-├── scan/         # WiFi scanning and network discovery
-├── attack/       # Attack implementations (5 attack types)
-├── crack/        # Password cracking (4 strategies)
-└── report/       # PDF/HTML/JSON report generation
+├── app/            # Main application (navigation, theme, DI)
+├── core/           # Shared: root management, WiFi control, Room DB, logging
+├── scan/           # WiFi scanning and network discovery
+├── attack/         # Attack implementations (5 attack types)
+├── crack/          # Password cracking (4 strategies)
+├── report/         # PDF/HTML/JSON report generation
+├── firmware-dump/  # MediaTek driver patch files and Magisk module
+└── docs/           # Technical documentation (firmware analysis, guides)
 ```
 
 ## Building
