@@ -135,12 +135,40 @@ private fun TermuxCommandCard(
     missingModules: List<ModuleInfo>,
     onCopy: (String) -> Unit,
 ) {
-    // Build the Termux command from missing packages
-    // root-repo is required for pentest tools (aircrack-ng, hcxdumptool, etc.)
-    val packages = missingModules
-        .mapNotNull { it.packageName.ifBlank { null } }
-        .distinct()
-    val termuxCmd = "pkg install root-repo && pkg install -y ${packages.joinToString(" ")}"
+    // Build the Termux install command
+    // aircrack-ng was removed from Termux repos — install via .deb from GitHub
+    // Other tools: iw, dnsmasq are in main repo; hcxdumptool/hcxtools/hashcat via root-repo or compile
+    val termuxCmd = buildString {
+        val hasAircrack = missingModules.any { it.name in listOf("aircrack-ng", "airodump-ng", "aireplay-ng") }
+        val hasHcx = missingModules.any { it.name in listOf("hcxdumptool", "hcxpcapngtool") }
+        val hasIw = missingModules.any { it.name == "iw" }
+        val hasDnsmasq = missingModules.any { it.name == "dnsmasq" }
+        val hasHashcat = missingModules.any { it.name == "hashcat" }
+
+        // Standard packages first
+        val stdPkgs = mutableListOf<String>()
+        if (hasIw) stdPkgs.add("iw")
+        if (hasDnsmasq) stdPkgs.add("dnsmasq")
+        if (stdPkgs.isNotEmpty()) {
+            append("pkg install -y ${stdPkgs.joinToString(" ")} && ")
+        }
+
+        // Aircrack-ng via .deb
+        if (hasAircrack) {
+            append("curl -sLO https://github.com/pitube08642/aircrack-ng-for-termux/releases/download/Aircrack-ng_termux/aircrack-ng_3_1.7_aarch64.deb && dpkg -i aircrack-ng_3_1.7_aarch64.deb && rm aircrack-ng_3_1.7_aarch64.deb")
+        }
+
+        // hcxtools / hcxdumptool
+        if (hasHcx) {
+            if (hasAircrack) append(" && ")
+            append("pkg install -y root-repo && pkg install -y hcxdumptool hcxtools 2>/dev/null || echo 'hcxtools: install manually from source'")
+        }
+
+        // hashcat
+        if (hasHashcat) {
+            append(" && pkg install -y hashcat 2>/dev/null || echo 'hashcat: install manually'")
+        }
+    }
 
     Card(
         modifier = Modifier
