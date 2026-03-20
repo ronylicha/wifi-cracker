@@ -39,4 +39,12 @@
     <string name="modules_install_all">Install all missing modules</string>
     <string name="modules_install">Install</string>
     <string name="modules_log">Install Log</string>
+    <string name="wordlists_title">Wordlists</string>
+    <string name="wordlists_installed">Installed</string>
+    <string name="wordlists_available">Available for download</string>
+    <string name="wordlists_none">No wordlists installed</string>
+    <string name="wordlists_words">%d words</string>
+    <string name="wordlists_download">Download</string>
+    <string name="wordlists_delete">Delete</string>
+    <string name="wordlists_downloading">Downloading...</string>
 </resources>

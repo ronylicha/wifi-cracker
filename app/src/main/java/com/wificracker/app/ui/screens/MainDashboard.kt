@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Security
@@ -171,6 +172,9 @@ fun MainDashboard() {
                 composable("modules") {
                     ModulesScreen(onBack = { navController.popBackStack() })
                 }
+                composable("wordlists") {
+                    WordlistScreen(onBack = { navController.popBackStack() })
+                }
             }
         }
     }
@@ -230,6 +234,11 @@ private fun DrawerContent(onNavigate: (String) -> Unit) {
             icon = Icons.Default.History,
             label = stringResource(R.string.audit_log),
             onClick = { onNavigate("audit_log") },
+        )
+        DrawerItem(
+            icon = Icons.AutoMirrored.Filled.List,
+            label = stringResource(R.string.wordlists),
+            onClick = { onNavigate("wordlists") },
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
