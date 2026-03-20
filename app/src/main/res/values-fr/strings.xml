@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">WiFi Cracker</string>
+    <string name="nav_scan">Scan</string>
+    <string name="nav_attack">Attaque</string>
+    <string name="nav_crack">Crack</string>
+    <string name="nav_reports">Rapports</string>
+    <string name="disclaimer_title">Avertissement legal</string>
+    <string name="disclaimer_body">Cette application est destinee uniquement aux tests de securite autorises. Tout acces non autorise a des reseaux informatiques est illegal. En utilisant cette application, vous confirmez disposer d\'une autorisation ecrite pour tester les reseaux cibles.</string>
+    <string name="disclaimer_accept">J\'accepte</string>
+    <string name="root_error_title">Root requis</string>
+    <string name="root_error_body">WiFi Cracker necessite un appareil roote avec le support du mode monitor. Veuillez rooter votre appareil et reessayer.</string>
+    <string name="settings">Parametres</string>
+    <string name="company_profile">Profil entreprise</string>
+    <string name="saved_clients">Clients enregistres</string>
+    <string name="wordlists">Listes de mots</string>
+    <string name="vuln_database">Base de vulnerabilites</string>
+    <string name="audit_log">Journal d\'audit</string>
+    <string name="about">A propos</string>
+</resources>
