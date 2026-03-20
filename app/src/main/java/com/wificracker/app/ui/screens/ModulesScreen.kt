@@ -136,10 +136,11 @@ private fun TermuxCommandCard(
     onCopy: (String) -> Unit,
 ) {
     // Build the Termux command from missing packages
+    // root-repo is required for pentest tools (aircrack-ng, hcxdumptool, etc.)
     val packages = missingModules
         .mapNotNull { it.packageName.ifBlank { null } }
         .distinct()
-    val termuxCmd = "pkg install -y ${packages.joinToString(" ")}"
+    val termuxCmd = "pkg install root-repo && pkg install -y ${packages.joinToString(" ")}"
 
     Card(
         modifier = Modifier
