@@ -87,6 +87,83 @@ adb reboot
 
 **Tested on:** Unihertz Titan 2 (MT6878, Android 16) — 981 packets captured in 5 seconds.
 
+## Installing Pentest Tools (Modules)
+
+WiFi Cracker requires external ARM64 binaries for scanning, attacking, and cracking. The app includes a **Modules** screen (Drawer > Modules) that checks which tools are installed and installs missing ones automatically.
+
+### Required Tools
+
+| Binary | Package | Purpose |
+|--------|---------|---------|
+| aircrack-ng | aircrack-ng | WiFi password cracking suite |
+| airodump-ng | aircrack-ng | WiFi network scanner and packet capture |
+| aireplay-ng | aircrack-ng | Deauthentication and packet injection |
+| hcxdumptool | hcxdumptool | PMKID capture without connected clients |
+| hcxpcapngtool | hcxtools | Convert .cap to .hc22000 hash format |
+| hashcat | hashcat | Advanced password recovery |
+| hostapd | hostapd | Rogue access point (Evil Twin) |
+| dnsmasq | dnsmasq | DHCP/DNS server for Evil Twin |
+| iw | iw | Wireless interface configuration |
+
+### Method 1: Via Termux (Recommended)
+
+The easiest way to get all tools:
+
+1. **Install Termux** from [F-Droid](https://f-droid.org/packages/com.termux/) (NOT from Play Store — the Play Store version is outdated and broken)
+
+2. **Open Termux** and run:
+```bash
+pkg update && pkg install -y aircrack-ng hcxdumptool hcxtools hashcat hostapd dnsmasq iw
+```
+
+3. **Open WiFi Cracker** > Drawer > **Modules** > tap **"Install all missing modules"**
+
+The app will automatically copy the binaries from Termux to its working directory (`/data/local/tmp/wificracker/`).
+
+### Method 2: Via Kali Nethunter
+
+If you have Kali Nethunter installed:
+
+1. The tools are already available in the chroot at `/data/local/nhsystem/kali-arm64/usr/bin/`
+2. Open WiFi Cracker > Drawer > **Modules** > tap **"Install all missing modules"**
+3. The app will detect and copy from the Nethunter chroot automatically
+
+### Method 3: Automatic Download
+
+If neither Termux nor Nethunter is installed, the Modules screen will attempt to download pre-compiled ARM64 binaries from community repositories via `curl`. This requires an internet connection on the device.
+
+### Method 4: Manual Installation
+
+You can manually push binaries compiled for ARM64 Android:
+
+```bash
+# From your PC, push pre-compiled binaries
+adb push aircrack-ng /data/local/tmp/wificracker/
+adb push airodump-ng /data/local/tmp/wificracker/
+# ... etc
+adb shell "su -c 'chmod 755 /data/local/tmp/wificracker/*'"
+```
+
+### MediaTek-Specific Tools
+
+For devices using the patched MediaTek driver (see above), two additional binaries are needed:
+
+| Binary | Purpose |
+|--------|---------|
+| wpa_driver | Sends SNIFFER command to the MTK driver |
+| ics_enable | Toggles ICS (Internal Capture Service) |
+
+These are compiled from the source in `firmware-dump/` using the Android NDK:
+
+```bash
+# Cross-compile from PC
+NDK_CC="$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang"
+$NDK_CC -static -o wpa_driver firmware-dump/wpa_driver.c
+$NDK_CC -static -o ics_enable firmware-dump/ics_enable.c
+adb push wpa_driver ics_enable /data/local/tmp/
+adb shell "su -c 'chmod 755 /data/local/tmp/wpa_driver /data/local/tmp/ics_enable'"
+```
+
 ## Tech Stack
 
 | Component | Technology |

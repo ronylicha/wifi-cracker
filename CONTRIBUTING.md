@@ -118,9 +118,19 @@ String resources are in each module's `res/values/strings.xml` (EN) and `res/val
 
 ## Roadmap
 
-- [ ] Settings screen (theme toggle, language switch, storage config)
-- [ ] Vulnerability database browser screen
-- [ ] Audit log viewer/exporter
-- [ ] Wordlist manager with download support
-- [ ] USB WiFi adapter auto-detection
-- [ ] Dark/Light theme toggle in settings
+- [x] Settings screen (theme toggle, language switch)
+- [x] Vulnerability database browser (76+ CVEs, searchable)
+- [x] Audit log viewer/exporter
+- [x] Modules installer (Termux/Nethunter/download)
+- [x] Company and client profile management
+- [x] Auto-detect WiFi chipset (Qualcomm/Broadcom/MediaTek)
+- [x] MediaTek MT6878 patched driver for monitor mode
+- [x] FR/EN bilingual support
+- [ ] Wordlist manager with download support (rockyou, SecLists)
+- [ ] USB WiFi adapter auto-detection (OTG)
+- [ ] Channel hopping during scan
+- [ ] pcap export from scan results
+- [ ] Live packet count during scan
+- [ ] Integration tests on rooted device with WiFi adapter
+- [ ] Play Store / F-Droid distribution
+- [ ] Port MTK driver patch to other Dimensity SoCs
