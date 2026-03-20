@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
@@ -23,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -98,6 +100,7 @@ fun ScanScreen(
             ScanHeader(
                 state = state,
                 onInterfaceSelected = viewModel::selectInterface,
+                onExportClick = viewModel::exportPcap,
             )
 
             // Network list
@@ -125,7 +128,11 @@ fun ScanScreen(
 }
 
 @Composable
-private fun ScanHeader(state: ScanUiState, onInterfaceSelected: (com.wificracker.core.wifi.WifiInterface) -> Unit) {
+private fun ScanHeader(
+    state: ScanUiState,
+    onInterfaceSelected: (com.wificracker.core.wifi.WifiInterface) -> Unit,
+    onExportClick: () -> Unit,
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -163,6 +170,27 @@ private fun ScanHeader(state: ScanUiState, onInterfaceSelected: (com.wificracker
                     Text(stringResource(R.string.scan_networks_count, state.scanResult.networks.size), style = MaterialTheme.typography.bodySmall)
                     Text(stringResource(R.string.scan_clients_count, state.scanResult.clients.size), style = MaterialTheme.typography.bodySmall)
                     Text("${state.scanResult.duration / 1000}s", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            if (state.isScanning) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text("CH ${state.currentChannel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                        Text("${state.packetCount} pkts", style = MaterialTheme.typography.bodySmall)
+                    }
+                    IconButton(onClick = onExportClick) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = stringResource(R.string.scan_export),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
 

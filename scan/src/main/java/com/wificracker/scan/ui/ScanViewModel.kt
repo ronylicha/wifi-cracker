@@ -5,21 +5,20 @@ import androidx.lifecycle.viewModelScope
 import com.wificracker.core.wifi.InterfaceManager
 import com.wificracker.core.wifi.MonitorModeManager
 import com.wificracker.core.wifi.WifiInterface
+import com.wificracker.scan.domain.ChannelHopper
 import com.wificracker.scan.domain.NetworkAnalyzer
+import com.wificracker.scan.domain.PcapExporter
 import com.wificracker.scan.domain.ScanEngine
 import com.wificracker.scan.domain.VulnMatcher
-import com.wificracker.scan.model.Network
 import com.wificracker.scan.model.ScanResult
 import com.wificracker.scan.model.ScanStatus
 import com.wificracker.scan.model.VulnMatch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -33,6 +32,9 @@ data class ScanUiState(
     val errorMessage: String? = null,
     val chipsetInfo: String = "",
     val supportsInternalMonitor: Boolean = false,
+    val currentChannel: Int = 0,
+    val packetCount: Long = 0,
+    val channelHopping: Boolean = false,
 )
 
 @HiltViewModel
@@ -42,7 +44,12 @@ class ScanViewModel @Inject constructor(
     private val vulnMatcher: VulnMatcher,
     private val networkAnalyzer: NetworkAnalyzer,
     private val monitorModeManager: MonitorModeManager,
+    private val channelHopper: ChannelHopper,
+    private val pcapExporter: PcapExporter,
 ) : ViewModel() {
+
+    private var hoppingJob: Job? = null
+    private var packetCountJob: Job? = null
 
     private val _uiState = MutableStateFlow(ScanUiState())
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()
@@ -114,7 +121,41 @@ class ScanViewModel @Inject constructor(
 
     fun stopScan() {
         viewModelScope.launch(Dispatchers.IO) {
+            hoppingJob?.cancel()
+            hoppingJob = null
+            packetCountJob?.cancel()
+            packetCountJob = null
             scanEngine.stopScan()
+            _uiState.value = _uiState.value.copy(channelHopping = false, currentChannel = 0)
+        }
+    }
+
+    fun toggleChannelHopping() {
+        val iface = _uiState.value.selectedInterface ?: return
+        if (_uiState.value.channelHopping) {
+            hoppingJob?.cancel()
+            hoppingJob = null
+            _uiState.value = _uiState.value.copy(channelHopping = false)
+        } else {
+            _uiState.value = _uiState.value.copy(channelHopping = true)
+            hoppingJob = viewModelScope.launch(Dispatchers.IO) {
+                channelHopper.startHopping(iface.name).collect { channel ->
+                    _uiState.value = _uiState.value.copy(currentChannel = channel)
+                }
+            }
+        }
+    }
+
+    fun exportPcap() {
+        val iface = _uiState.value.selectedInterface ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val path = pcapExporter.startCapture(iface.name)
+                _uiState.value = _uiState.value.copy(errorMessage = null)
+                // Stop capture after a short moment — caller can invoke stopCapture explicitly
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(errorMessage = e.message ?: "Export failed")
+            }
         }
     }
 }
