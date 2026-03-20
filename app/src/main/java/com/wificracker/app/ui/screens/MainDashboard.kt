@@ -171,9 +171,6 @@ fun MainDashboard() {
                 composable("audit_log") {
                     AuditLogScreen(onBack = { navController.popBackStack() })
                 }
-                composable("modules") {
-                    ModulesScreen(onBack = { navController.popBackStack() })
-                }
                 composable("wordlists") {
                     WordlistScreen(onBack = { navController.popBackStack() })
                 }
@@ -251,11 +248,6 @@ private fun DrawerContent(onNavigate: (String) -> Unit) {
             icon = Icons.Default.Info,
             label = stringResource(R.string.about),
             onClick = { onNavigate("about") },
-        )
-        DrawerItem(
-            icon = Icons.Default.Build,
-            label = stringResource(R.string.modules_title),
-            onClick = { onNavigate("modules") },
         )
         DrawerItem(
             icon = Icons.Default.Settings,
