@@ -9,4 +9,5 @@ data class CrackProgress(
     val progress: Float = 0f,
     val eta: String = "",
     val currentKey: String = "",
+    val message: String = "",
 )
