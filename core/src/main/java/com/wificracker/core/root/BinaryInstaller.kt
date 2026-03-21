@@ -15,15 +15,14 @@ class BinaryInstaller @Inject constructor(private val shellExecutor: ShellExecut
     fun installAllFromAssets(context: Context) {
         shellExecutor.executeAsRoot("mkdir -p $INSTALL_DIR $LIB_DIR")
 
-        // Extract binaries from APK assets
+        // Extract binaries from APK assets — always overwrite to ensure latest version
         val tmpDir = context.cacheDir.resolve("binaries_extract")
         tmpDir.mkdirs()
 
         try {
-            // Copy main binaries
+            // Copy main binaries (always overwrite)
             val binaries = context.assets.list("binaries")?.filter { it != "lib" } ?: emptyList()
             for (name in binaries) {
-                if (isBinaryInstalled(name)) continue
                 val tmpFile = File(tmpDir, name)
                 context.assets.open("binaries/$name").use { input ->
                     tmpFile.outputStream().use { output -> input.copyTo(output) }
