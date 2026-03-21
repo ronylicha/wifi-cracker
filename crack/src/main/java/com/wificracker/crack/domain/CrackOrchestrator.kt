@@ -2,6 +2,7 @@ package com.wificracker.crack.domain
 
 import com.wificracker.core.logging.AuditEntry
 import com.wificracker.core.logging.AuditLogger
+import com.wificracker.core.service.SessionCollector
 import com.wificracker.crack.domain.strategies.*
 import com.wificracker.crack.model.*
 import kotlinx.coroutines.Job
@@ -22,6 +23,7 @@ class CrackOrchestrator @Inject constructor(
     private val combinatorAttack: CombinatorAttack,
     private val hashConverter: HashConverter,
     private val auditLogger: AuditLogger,
+    private val sessionCollector: SessionCollector,
 ) {
     private val _progress = MutableStateFlow(CrackProgress())
     val progress: StateFlow<CrackProgress> = _progress.asStateFlow()
@@ -59,8 +61,21 @@ class CrackOrchestrator @Inject constructor(
                     .collect { progress ->
                         _progress.value = progress
                         if (progress.status == CrackStatus.COMPLETED) {
-                            _result.value = CrackResult(jobId = activeJob.id, success = progress.currentKey.isNotBlank(), password = progress.currentKey, duration = System.currentTimeMillis() - startTime)
-                            auditLogger.log(AuditEntry(action = "CRACK_DONE", module = "crack", target = activeJob.targetBssid, result = if (progress.currentKey.isNotBlank()) "FOUND" else "NOT_FOUND"))
+                            val crackDuration = System.currentTimeMillis() - startTime
+                            val found = progress.currentKey.isNotBlank()
+                            _result.value = CrackResult(jobId = activeJob.id, success = found, password = progress.currentKey, duration = crackDuration)
+                            auditLogger.log(AuditEntry(action = "CRACK_DONE", module = "crack", target = activeJob.targetBssid, result = if (found) "FOUND" else "NOT_FOUND"))
+                            sessionCollector.recordCrack(
+                                SessionCollector.CrackRecord(
+                                    targetBssid = activeJob.targetBssid,
+                                    targetSsid = activeJob.targetSsid,
+                                    strategy = activeJob.strategy.name,
+                                    success = found,
+                                    password = if (found) progress.currentKey else "",
+                                    keysTested = progress.keysTested,
+                                    duration = crackDuration,
+                                ),
+                            )
                         }
                     }
             }

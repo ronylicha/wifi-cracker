@@ -4,6 +4,7 @@ import com.wificracker.attack.domain.attacks.*
 import com.wificracker.attack.model.*
 import com.wificracker.core.logging.AuditEntry
 import com.wificracker.core.logging.AuditLogger
+import com.wificracker.core.service.SessionCollector
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ class AttackOrchestrator @Inject constructor(
     private val probeSniff: ProbeSniff,
     private val prerequisiteCheck: PrerequisiteCheck,
     private val auditLogger: AuditLogger,
+    private val sessionCollector: SessionCollector,
 ) {
     private val _attackState = MutableStateFlow(Attack(type = AttackType.DEAUTH, targetBssid = "", interfaceName = ""))
     val attackState: StateFlow<Attack> = _attackState.asStateFlow()
@@ -64,7 +66,18 @@ class AttackOrchestrator @Inject constructor(
                     .collect { line ->
                         _consoleOutput.value = _consoleOutput.value + line
                     }
-                _attackState.value = _attackState.value.copy(status = AttackStatus.COMPLETED, endTime = System.currentTimeMillis())
+                val completedAttack = _attackState.value.copy(status = AttackStatus.COMPLETED, endTime = System.currentTimeMillis())
+                _attackState.value = completedAttack
+                sessionCollector.recordAttack(
+                    SessionCollector.AttackRecord(
+                        type = completedAttack.type.name,
+                        targetBssid = completedAttack.targetBssid,
+                        targetSsid = completedAttack.targetSsid,
+                        status = completedAttack.status.name,
+                        startTime = completedAttack.startTime,
+                        endTime = completedAttack.endTime,
+                    ),
+                )
             }
         }
     }

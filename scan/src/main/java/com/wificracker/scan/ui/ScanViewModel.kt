@@ -2,6 +2,9 @@ package com.wificracker.scan.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wificracker.core.model.SelectedNetwork
+import com.wificracker.core.service.SelectedNetworkRepository
+import com.wificracker.core.service.SessionCollector
 import com.wificracker.core.wifi.InterfaceManager
 import com.wificracker.core.wifi.MonitorModeManager
 import com.wificracker.core.wifi.WifiInterface
@@ -35,6 +38,7 @@ data class ScanUiState(
     val currentChannel: Int = 0,
     val packetCount: Long = 0,
     val channelHopping: Boolean = false,
+    val selectedBssid: String? = null,
 )
 
 @HiltViewModel
@@ -46,6 +50,8 @@ class ScanViewModel @Inject constructor(
     private val monitorModeManager: MonitorModeManager,
     private val channelHopper: ChannelHopper,
     private val pcapExporter: PcapExporter,
+    private val selectedNetworkRepository: SelectedNetworkRepository,
+    private val sessionCollector: SessionCollector,
 ) : ViewModel() {
 
     private var hoppingJob: Job? = null
@@ -89,6 +95,14 @@ class ScanViewModel @Inject constructor(
                     isStarting = if (scanResult.status != ScanStatus.IDLE) false else _uiState.value.isStarting,
                     errorMessage = if (scanResult.status == ScanStatus.FAILED) "Monitor mode or scan binary unavailable" else _uiState.value.errorMessage,
                 )
+                // Update session stats for report generation
+                if (scanResult.status == ScanStatus.COMPLETED || scanResult.networks.isNotEmpty()) {
+                    sessionCollector.updateScanStats(
+                        networkCount = scanResult.networks.size,
+                        duration = scanResult.duration,
+                        interfaceName = scanResult.interfaceName,
+                    )
+                }
                 // Match vulns for discovered networks
                 if (scanResult.networks.isNotEmpty()) {
                     launch(Dispatchers.IO) {
@@ -102,6 +116,20 @@ class ScanViewModel @Inject constructor(
 
     fun selectInterface(iface: WifiInterface) {
         _uiState.value = _uiState.value.copy(selectedInterface = iface)
+    }
+
+    fun selectNetwork(bssid: String) {
+        val network = _uiState.value.scanResult.networks.find { it.bssid == bssid } ?: return
+        selectedNetworkRepository.select(
+            SelectedNetwork(
+                bssid = network.bssid,
+                ssid = network.ssid,
+                channel = network.channel,
+                encryption = network.encryption.label,
+                signalStrength = network.signalStrength,
+            ),
+        )
+        _uiState.value = _uiState.value.copy(selectedBssid = bssid)
     }
 
     fun startScan() {

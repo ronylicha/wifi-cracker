@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -98,6 +99,39 @@ private fun MissionInfoStep(state: ReportUiState, viewModel: ReportViewModel) {
 @Composable
 private fun FindingsStep(state: ReportUiState, viewModel: ReportViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Session collection button
+        Button(
+            onClick = { viewModel.collectSessionResults() },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(Icons.Default.Sync, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (state.sessionCollected) stringResource(R.string.report_refresh_session) else stringResource(R.string.report_collect_session))
+        }
+
+        // Session stats banner
+        if (state.sessionCollected) {
+            val stats = state.sessionStats
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.report_session_summary), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        SessionStatChip(label = stringResource(R.string.report_networks), value = "${stats.networksScanned}")
+                        SessionStatChip(label = stringResource(R.string.report_attacks), value = "${stats.attacksSuccessful}/${stats.attacksPerformed}")
+                        SessionStatChip(label = stringResource(R.string.report_cracks), value = "${stats.cracksSuccessful}/${stats.cracksAttempted}")
+                    }
+                    if (stats.passwordsFound.isNotEmpty()) {
+                        Text(
+                            text = "${stringResource(R.string.report_passwords_found)}: ${stats.passwordsFound.joinToString(", ")}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
         Text(stringResource(R.string.report_findings, state.findings.size), style = MaterialTheme.typography.titleMedium)
         if (state.findings.isEmpty()) {
             Text(stringResource(R.string.report_no_findings), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -107,12 +141,20 @@ private fun FindingsStep(state: ReportUiState, viewModel: ReportViewModel) {
                 Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text("[${finding.severity.label}] ${finding.title}", style = MaterialTheme.typography.bodyMedium)
-                        Text("CVSS ${finding.cvssScore}", style = MaterialTheme.typography.labelSmall)
+                        Text("CVSS ${finding.cvssScore}${if (finding.networkSsid.isNotBlank()) " | ${finding.networkSsid}" else ""}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     TextButton(onClick = { viewModel.removeFinding(finding.id) }) { Text(stringResource(R.string.report_remove), color = MaterialTheme.colorScheme.error) }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SessionStatChip(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

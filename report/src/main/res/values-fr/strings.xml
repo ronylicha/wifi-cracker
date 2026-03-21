@@ -48,4 +48,11 @@
     <string name="profile_no_clients">Aucun client enregistre</string>
     <string name="report_select_client">Selectionner un client enregistre</string>
     <string name="report_or_manual">Ou saisir les informations manuellement :</string>
+    <string name="report_collect_session">Collecter les resultats de session</string>
+    <string name="report_refresh_session">Rafraichir les resultats</string>
+    <string name="report_session_summary">Resume de la session</string>
+    <string name="report_networks">Reseaux</string>
+    <string name="report_attacks">Attaques</string>
+    <string name="report_cracks">Cracks</string>
+    <string name="report_passwords_found">Mots de passe trouves</string>
 </resources>

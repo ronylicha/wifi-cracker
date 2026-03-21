@@ -2,12 +2,17 @@ package com.wificracker.crack.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wificracker.core.service.SelectedNetworkRepository
 import com.wificracker.crack.domain.CrackOrchestrator
 import com.wificracker.crack.domain.WordlistManager
 import com.wificracker.crack.model.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,12 +26,14 @@ data class CrackUiState(
     val progress: CrackProgress = CrackProgress(),
     val result: CrackResult? = null,
     val isRunning: Boolean = false,
+    val hasTargetNetwork: Boolean = false,
 )
 
 @HiltViewModel
 class CrackViewModel @Inject constructor(
     private val orchestrator: CrackOrchestrator,
     private val wordlistManager: WordlistManager,
+    private val selectedNetworkRepository: SelectedNetworkRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CrackUiState())
     val uiState: StateFlow<CrackUiState> = _uiState.asStateFlow()
@@ -35,6 +42,18 @@ class CrackViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) { _uiState.value = _uiState.value.copy(wordlists = wordlistManager.getAllWordlists()) }
         viewModelScope.launch { orchestrator.progress.collect { p -> _uiState.value = _uiState.value.copy(progress = p, isRunning = p.status == CrackStatus.RUNNING || p.status == CrackStatus.CONVERTING) } }
         viewModelScope.launch { orchestrator.result.collect { r -> _uiState.value = _uiState.value.copy(result = r) } }
+        viewModelScope.launch {
+            selectedNetworkRepository.selectedNetwork
+                .filterNotNull()
+                .distinctUntilChanged()
+                .collect { network ->
+                    _uiState.value = _uiState.value.copy(
+                        targetBssid = network.bssid,
+                        targetSsid = network.ssid,
+                        hasTargetNetwork = true,
+                    )
+                }
+        }
     }
 
     fun setCapture(path: String, bssid: String = "", ssid: String = "") { _uiState.value = _uiState.value.copy(capturePath = path, targetBssid = bssid, targetSsid = ssid) }

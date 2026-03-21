@@ -112,7 +112,11 @@ fun ScanScreen(
                     NetworkCard(
                         network = network,
                         vulnCount = state.vulnMatches[network.bssid]?.size ?: 0,
-                        onClick = { onNetworkClick(network.bssid) },
+                        isSelected = state.selectedBssid == network.bssid,
+                        onClick = {
+                            viewModel.selectNetwork(network.bssid)
+                            onNetworkClick(network.bssid)
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }

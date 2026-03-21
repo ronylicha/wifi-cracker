@@ -1,6 +1,7 @@
 package com.wificracker.report.domain
 
 import com.wificracker.report.model.*
+import com.wificracker.report.ui.SessionStats
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,12 +16,13 @@ class ReportGenerator @Inject constructor(
         companyProfile: CompanyProfile,
         findings: List<Finding>,
         manualRecommendations: List<Recommendation> = emptyList(),
+        sessionStats: SessionStats = SessionStats(),
     ): Report {
         val autoRecs = autoRecommender.generateRecommendations(findings)
         val allRecs = (manualRecommendations + autoRecs).distinctBy { it.title }.sortedBy { it.priority }
         val summary = riskRating.computeSummary(findings)
 
-        val executiveSummary = buildExecutiveSummary(missionInfo, findings, summary)
+        val executiveSummary = buildExecutiveSummary(missionInfo, findings, summary, sessionStats)
 
         return Report(
             missionInfo = missionInfo,
@@ -33,13 +35,24 @@ class ReportGenerator @Inject constructor(
         )
     }
 
-    private fun buildExecutiveSummary(missionInfo: MissionInfo, findings: List<Finding>, summary: RiskSummary): String {
+    private fun buildExecutiveSummary(missionInfo: MissionInfo, findings: List<Finding>, summary: RiskSummary, sessionStats: SessionStats): String {
         return buildString {
             appendLine("WiFi Security Assessment - Executive Summary")
             appendLine()
             appendLine("Assessment Date: ${java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date(missionInfo.date))}")
             appendLine("Scope: ${missionInfo.scope}")
             appendLine()
+
+            // Session activity overview
+            if (sessionStats.networksScanned > 0 || sessionStats.attacksPerformed > 0) {
+                appendLine("Assessment Activity:")
+                if (sessionStats.networksScanned > 0) appendLine("  Networks Scanned: ${sessionStats.networksScanned}")
+                if (sessionStats.attacksPerformed > 0) appendLine("  Attacks Performed: ${sessionStats.attacksPerformed} (${sessionStats.attacksSuccessful} successful)")
+                if (sessionStats.cracksAttempted > 0) appendLine("  Crack Attempts: ${sessionStats.cracksAttempted} (${sessionStats.cracksSuccessful} successful)")
+                if (sessionStats.passwordsFound.isNotEmpty()) appendLine("  Passwords Recovered: ${sessionStats.passwordsFound.size}")
+                appendLine()
+            }
+
             appendLine("Overall Security Grade: ${summary.overallGrade}")
             appendLine("Average CVSS Score: ${"%.1f".format(summary.averageCvss)}/10.0")
             appendLine()
@@ -52,6 +65,7 @@ class ReportGenerator @Inject constructor(
             appendLine("  Total: ${findings.size}")
             appendLine()
             if (summary.criticalCount > 0) appendLine("IMMEDIATE ACTION REQUIRED: ${summary.criticalCount} critical vulnerabilities were identified that require urgent remediation.")
+            if (sessionStats.passwordsFound.isNotEmpty()) appendLine("WARNING: ${sessionStats.passwordsFound.size} WiFi password(s) were successfully recovered during this assessment, demonstrating insufficient password complexity.")
         }
     }
 }

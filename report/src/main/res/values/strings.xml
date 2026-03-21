@@ -48,4 +48,11 @@
     <string name="profile_no_clients">No clients saved yet</string>
     <string name="report_select_client">Select a saved client</string>
     <string name="report_or_manual">Or enter client details manually:</string>
+    <string name="report_collect_session">Collect Session Results</string>
+    <string name="report_refresh_session">Refresh Session Results</string>
+    <string name="report_session_summary">Session Summary</string>
+    <string name="report_networks">Networks</string>
+    <string name="report_attacks">Attacks</string>
+    <string name="report_cracks">Cracks</string>
+    <string name="report_passwords_found">Passwords found</string>
 </resources>

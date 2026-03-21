@@ -40,8 +40,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -62,7 +65,10 @@ import com.wificracker.report.ui.ClientEditScreen
 import com.wificracker.report.ui.ClientListScreen
 import com.wificracker.report.ui.CompanyProfileScreen
 import com.wificracker.report.ui.ReportDashboard
+import com.wificracker.core.model.SelectedNetwork
+import com.wificracker.core.service.SelectedNetworkRepository
 import com.wificracker.scan.ui.ScanScreen
+import com.wificracker.scan.ui.ScanViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,10 +144,34 @@ fun MainDashboard() {
                 composable(BottomNavTab.Crack.route) { CrackDashboard() }
                 composable(BottomNavTab.Reports.route) { ReportDashboard() }
 
-                // Network detail
+                // Network detail — récupère le réseau depuis le ScanViewModel partagé
                 composable("network_detail/{bssid}") { backStackEntry ->
                     val bssid = backStackEntry.arguments?.getString("bssid") ?: return@composable
-                    NetworkDetailPlaceholder(bssid = bssid, onBack = { navController.popBackStack() })
+                    val scanBackStackEntry = remember(backStackEntry) {
+                        navController.getBackStackEntry(BottomNavTab.Scan.route)
+                    }
+                    val scanViewModel: ScanViewModel = hiltViewModel(scanBackStackEntry)
+                    val scanState by scanViewModel.uiState.collectAsState()
+                    val network = scanState.scanResult.networks.find { it.bssid == bssid }
+                    val vulnMatches = scanState.vulnMatches[bssid] ?: emptyList()
+
+                    if (network != null) {
+                        com.wificracker.scan.ui.NetworkDetailScreen(
+                            network = network,
+                            vulnMatches = vulnMatches,
+                            onBack = { navController.popBackStack() },
+                            onAttack = {
+                                scanViewModel.selectNetwork(network.bssid)
+                                navController.navigate(BottomNavTab.Attack.route) {
+                                    popUpTo(navController.graph.startDestinationId) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                        )
+                    } else {
+                        NetworkDetailPlaceholder(bssid = bssid, onBack = { navController.popBackStack() })
+                    }
                 }
 
                 // Drawer screens
