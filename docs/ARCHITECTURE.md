@@ -218,7 +218,7 @@ POST_NOTIFICATIONS
 |-------|------|
 | `InterfaceManager` | Lists all WiFi interfaces using `iw dev` with fallback to `/proc/net/wireless` and `/sys/class/net`. Merges internal and USB adapters. Returns `List<WifiInterface>`. |
 | `ChipsetDetector` | Reads driver from `/sys/class/net/<iface>/device/driver` symlink. Checks driver name against a known set of monitor-capable drivers (ath9k, mt76, rt2800usb, etc.). |
-| `ChipsetMonitorHelper` | Detects chip vendor (Qualcomm/Broadcom/MediaTek) from sysfs/properties. Implements vendor-specific monitor mode enable/disable sequences. For MTK, verifies the patched driver SHA-256 and patch version (v3 or v4). |
+| `ChipsetMonitorHelper` | Detects chip vendor (Qualcomm/Broadcom/MediaTek) from sysfs/properties. Implements vendor-specific monitor mode enable/disable sequences. For MTK, verifies the patched driver SHA-256 and patch version (v3/v4/v5). |
 | `MonitorModeManager` | Facade over `ChipsetMonitorHelper`. Detects current monitor mode state from `iw dev info` or `/sys/class/net/<iface>/type` (value 803 = monitor). |
 | `UsbWifiDetector` | Enumerates USB network interfaces, reads `idVendor:idProduct`, and matches against a hardcoded table of known monitor-capable chipsets (Realtek RTL881x, Ralink RT3070/5370, Atheros AR9271, MediaTek MT7921). |
 | `WifiInterface` | Data class: name, macAddress, chipset, driver, supportsMonitor, isMonitorMode. |
@@ -228,13 +228,27 @@ POST_NOTIFICATIONS
 
 ```
 monitor/
-  MtkMonitorCapture  -- Reads raw IEEE 802.11 frames from /dev/fw_log_ics
-                        via SNIFFER command + ics_enable binary.
+  MtkMonitorCapture  -- Reads raw IEEE 802.11 frames from /dev/fw_log_ics.
+                        Activation sequence:
+                          1. setenforce 0 (SELinux blocks wpa_supplicant replies)
+                          2. wpa_cli driver "SNIFFER 2 0 ..." (fw cmd 0x93)
+                          3. ioctl SET_LEVEL=2 (raw int, NOT pointer)
+                          4. ioctl ON_OFF=1 (raw int, NOT pointer)
                         Emits Flow<Ieee80211Frame> via channelFlow.
   IcsPacketParser    -- Parses the proprietary MTK ICS packet format.
+                        Magic: 0x44D9C99A, 120-byte RX descriptor, 802.11 frame.
   Ieee80211Parser    -- Extracts BSSID (addr3), SSID, channel, RSSI
                         from raw IEEE 802.11 management frames.
 ```
+
+**ICS Ioctl detail:**
+
+| Ioctl | Code | Arg type | Values | Effect |
+|-------|------|----------|--------|--------|
+| `SET_LEVEL` | `0x4004FC01` | raw int (not pointer) | 0, 1, 2 | Set capture verbosity (2 = all) |
+| `ON_OFF` | `0x4004FC00` | raw int (not pointer) | 0, 1 | Enable/disable capture |
+
+> **Critical pitfall (v5 discovery):** The `fw_log_ics_unlocked_ioctl` handler reads `arg` directly from register x2 without `copy_from_user`. Passing `&value` (pointer) gives garbage values (e.g. `ics level[3836076384] is invaild!`). Must pass `ioctl(fd, cmd, (void*)(long)value)`.
 
 Chipset vendor detection flow:
 
@@ -243,7 +257,7 @@ ChipsetMonitorHelper.detectChipVendor()
   +--> /sys/module/wlan/parameters/con_mode  exists?  -> QUALCOMM (QCACLD con_mode)
   +--> /sys/module/bcmdhd* or dhd/parameters exists?  -> BROADCOM (Nexmon)
   +--> getprop ro.vendor.wlan.gen not blank?           -> MEDIATEK
-       +--> sha256 wlan_drv_gen4m_6878.ko              -> patchInstalled (v3/v4)
+       +--> sha256 wlan_drv_gen4m_6878.ko              -> patchInstalled (v3/v4/v5)
        +--> sha256 cfg80211.ko                         -> supportsRawTx
   +--> none matched                                    -> UNKNOWN
 ```
@@ -360,13 +374,16 @@ ScanEngine.startScan(interfaceName)
   |     cmd wifi list-scan-results -> parse -> emit
   |     delay 5s -> loop
   |
-  +-- (if MTK patched driver detected)
+  +-- (if MTK patched driver v5 detected)
         startIcsCapture()
-          MtkMonitorCapture.enableCapture()    <- SNIFFER + ics_enable 1
-          MtkMonitorCapture.startCapture()     <- reads /dev/fw_log_ics
+          setenforce 0                             <- SELinux must be permissive
+          wpa_cli driver "SNIFFER 2 0 ..."         <- dispatch D1 → priv_driver_sniffer → fw cmd 0x93
+          ioctl SET_LEVEL=2 (raw int)              <- IcsLog[Lv]=2
+          ioctl ON_OFF=1 (raw int)                 <- IcsLog[OnOff]=1
+          MtkMonitorCapture.startCapture()         <- reads /dev/fw_log_ics
             IcsPacketParser.parsePacket()
-            Ieee80211Parser.parseFrame()       <- beacon/probe resp -> Network
-          mergeNetworks(existing, incoming)    <- by BSSID, best signal wins
+            Ieee80211Parser.parseFrame()           <- beacon/probe resp -> Network
+          mergeNetworks(existing, incoming)         <- by BSSID, best signal wins
 ```
 
 ---
@@ -949,7 +966,11 @@ Current sanitisation points:
 
 The aircrack-ng suite is extracted from APK assets to `/data/local/tmp/wificracker/` on first launch. `BinaryInstaller.isBinaryInstalled()` checks only file existence and execute bit — it does not verify cryptographic integrity after installation.
 
-The MediaTek patched driver IS verified by specific SHA-256 hashes in `ChipsetMonitorHelper.detectChipVendor()` before enabling MTK-specific paths. This pattern (hash verification before privileged use) should be extended to the extracted binaries.
+The MediaTek patched driver IS verified by specific SHA-256 hashes in `ChipsetMonitorHelper.detectChipVendor()` before enabling MTK-specific paths (v3: `1551f37b...`, v5: `27f66957...`, cfg80211: `6313f82e...`). This pattern (hash verification before privileged use) should be extended to the extracted binaries.
+
+### SELinux Requirement
+
+The MTK ICS capture path requires SELinux to be in **permissive mode** (`setenforce 0`). In enforcing mode, `wpa_supplicant` (context `hal_wifi_supplicant_default`) is denied `sendto` on sockets created by `magisk` context, causing all `wpa_cli` commands to timeout silently. A permanent Magisk sepolicy fix is planned.
 
 ### Data Storage
 
