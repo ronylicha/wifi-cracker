@@ -1,11 +1,14 @@
 # Contributing to WiFi Cracker
 
-Thank you for your interest in contributing to WiFi Cracker! This guide will help you get started.
+Thank you for your interest in contributing to WiFi Cracker! This is a professional penetration testing tool designed for security auditors. This guide will help you get started.
 
 ## Code of Conduct
 
+Please read our full [Code of Conduct](CODE_OF_CONDUCT.md). Key points:
+
 - This tool is for **authorized security testing only**
-- Do not submit code designed for malicious purposes
+- Do not submit code designed for malicious purposes (backdoors, exfiltration, covert telemetry)
+- All contributions are licensed under **GPL-3.0**
 - Be respectful in all interactions
 
 ## Getting Started
@@ -20,7 +23,7 @@ Thank you for your interest in contributing to WiFi Cracker! This guide will hel
 ### Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/wifi-cracker.git
+git clone https://github.com/ronylicha/wifi-cracker.git
 cd wifi-cracker
 ./gradlew assembleDebug
 ```
@@ -126,11 +129,13 @@ String resources are in each module's `res/values/strings.xml` (EN) and `res/val
 - [x] Auto-detect WiFi chipset (Qualcomm/Broadcom/MediaTek)
 - [x] MediaTek MT6878 patched driver for monitor mode
 - [x] FR/EN bilingual support
-- [ ] Wordlist manager with download support (rockyou, SecLists)
+- [x] Wordlist manager
+- [x] Channel hopping during scan
+- [x] pcap export from scan results
+- [x] Live packet count during scan
+- [x] Cross-tab network selection (select on scan → auto-fill attack/crack)
+- [x] Session-based report generation (collect all results in one click)
 - [ ] USB WiFi adapter auto-detection (OTG)
-- [ ] Channel hopping during scan
-- [ ] pcap export from scan results
-- [ ] Live packet count during scan
 - [ ] Integration tests on rooted device with WiFi adapter
-- [ ] Play Store / F-Droid distribution
+- [ ] F-Droid distribution
 - [ ] Port MTK driver patch to other Dimensity SoCs

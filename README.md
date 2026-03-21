@@ -1,6 +1,13 @@
 # WiFi Cracker
 
-Professional WiFi security auditing application for Android. Designed for authorized penetration testing.
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Release](https://img.shields.io/badge/Release-v1.0.0-green.svg)](https://github.com/ronylicha/wifi-cracker/releases/tag/v1.0.0)
+[![Android](https://img.shields.io/badge/Android-12%2B-brightgreen.svg)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0-purple.svg)](https://kotlinlang.org)
+
+Professional WiFi security auditing toolkit for Android, designed for penetration testers and security professionals conducting authorized wireless assessments.
+
+**[Getting Started](wiki/Getting-Started.md)** | **[User Guide](wiki/User-Guide.md)** | **[Architecture](docs/ARCHITECTURE.md)** | **[API Reference](docs/API_REFERENCE.md)** | **[Changelog](CHANGELOG.md)**
 
 ## Features
 
@@ -28,10 +35,17 @@ Professional WiFi security auditing application for Android. Designed for author
 - Pause/resume crack sessions
 - Real-time progress with speed and ETA
 
+### Cross-Tab Workflow
+- Select a network on scan page → auto-fills attack and crack targets
+- Visual target indicator across all tabs (GPS icon + primary border)
+- Network context maintained when switching between modules
+- "Launch Attack" from network detail navigates directly to attack tab
+
 ### Report Module
+- **One-click session collection** — aggregates scan, attack, and crack results automatically
 - Professional PDF/HTML/JSON report generation
 - CVSS v3.1 scoring with automatic severity classification
-- Executive summary with security grade (A-F)
+- Executive summary with security grade (A-F) and full session activity stats
 - Auto-generated recommendations based on findings
 - Company and client profile management with logo support
 - Bilingual reports (English/French)
@@ -219,7 +233,7 @@ The developers assume no liability for misuse of this tool.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+This project is licensed under the **GNU General Public License v3.0** - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 
