@@ -23,14 +23,12 @@ class MtkMonitorCapture(
     suspend fun enableCapture(): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Step 0: SELinux must be permissive for wpa_supplicant socket communication
+                // Step 0: SELinux permissive (required for wpa_supplicant comms)
                 shellExecutor.executeAsRoot("setenforce 0")
 
-                // Step 1: Send SNIFFER command via wpa_cli (uses dispatch table entry D1)
-                // Returns FAIL but fw cmd 0x93 is still sent — this is expected behavior
+                // Step 1: Send SNIFFER via ioctl 0x8BE5 (bypasses dispatch table + KCFI)
                 shellExecutor.executeAsRoot(
-                    "wpa_cli -p /data/vendor/wifi/wpa/sockets -i wlan0 driver \"SNIFFER 2 0 0 0 0 0 0 0 0 0\" || true",
-                    timeoutSeconds = 15,
+                    "/data/local/tmp/wificracker/sniffer_direct wlan0 \"SNIFFER 2 0 0 0 0 0 0 0 0 0\"",
                 )
 
                 // Step 2: Enable ICS via ics_enable with raw integer args

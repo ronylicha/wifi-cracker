@@ -166,10 +166,10 @@ class ChipsetMonitorHelper @Inject constructor(
         if (!capability.patchInstalled) {
             return ShellResult(-1, "", "MediaTek monitor mode requires the patched driver. Install the mtk_wifi_monitor Magisk module and reboot.")
         }
-        // v5 sequence: SELinux permissive → SNIFFER → ICS SET_LEVEL(2) → ICS ON_OFF(1)
+        // Sequence: SELinux permissive → SNIFFER via ioctl 0x8BE5 → ICS SET_LEVEL(2) → ON_OFF(1)
         val steps = listOf(
             "setenforce 0",
-            "wpa_cli -p /data/vendor/wifi/wpa/sockets -i $interfaceName driver \"SNIFFER 2 0 0 0 0 0 0 0 0 0\" || true",
+            "/data/local/tmp/wificracker/sniffer_direct $interfaceName \"SNIFFER 2 0 0 0 0 0 0 0 0 0\"",
             "/data/local/tmp/wificracker/ics_enable 2 1",
         )
         return executeSteps(steps)
