@@ -105,26 +105,34 @@ IcsLog[Lv:OnOff]=[0:0]   ← capture inactive
 
 ### Injection de deauth
 
+Deux methodes disponibles, avec des limitations :
+
+**Methode 1 : AP_STA_DISASSOC (necessite association)**
 ```bash
-# Deauth un client specifique
+# Fonctionne UNIQUEMENT si connecte au meme BSSID
 wpa_cli -p /data/vendor/wifi/wpa/sockets -i wlan0 driver "AP_STA_DISASSOC Mac=AA:BB:CC:DD:EE:FF"
 ```
 
-Le deauth est envoye via le chemin TX interne du driver. Le patch NOP le check de role AP dans `priv_driver_set_ap_sta_disassoc` pour qu'il fonctionne en mode STA.
+**Methode 2 : NL80211_CMD_FRAME via deauth_inject (sans association)**
+```bash
+# Envoie via nl80211, patches D2+D3 requis (v7)
+deauth_inject wlan0 <bssid> ff:ff:ff:ff:ff:ff 20 <freq_mhz>
+```
+Le kernel accepte les frames mais le firmware les drop dans la majorite des cas sans association BSS active. Taux de transmission reel : ~1/240 frames (observe via ICS capture).
+
+> **Limitation critique** : le firmware MTK requiert une association BSS active pour transmettre des management frames. Les patches D2 (bypass current_bss check) et D3 (force BssIdx=0) contournent les checks du driver mais le firmware conserve son propre filtre TX. L'injection deauth **sans etre connecte au reseau** n'est pas fiable sur ce chipset.
 
 ### Injection de frames arbitraires (raw TX)
 
-Le patch cfg80211 autorise `NL80211_CMD_FRAME` pour tous les types de management frames en mode STA. Utilisation via un outil compatible libnl :
+Le patch cfg80211 (N1/N2/N3) autorise `NL80211_CMD_FRAME` cote kernel. Le binaire `deauth_inject` utilise libnl pour envoyer des frames 802.11 arbitraires :
 
 ```bash
-# Deauth via nl80211 (necessite un binaire compatible libnl)
-iw dev wlan0 mgmt tx c0003a01<dest_mac><src_mac><bssid>000007000000 5200
-
-# Probe Request broadcast
-iw dev wlan0 mgmt tx 4000<dur><bcast><our_mac><bcast><seq><ssid_ie> 5200
+# Deauth broadcast (requiert offchannel pour meilleurs resultats)
+iw dev wlan0 offchannel 2452 5000 &
+deauth_inject wlan0 <bssid> ff:ff:ff:ff:ff:ff 20 2452
 ```
 
-> **Note** : l'outil `iw` standard n'a pas la sous-commande `mgmt tx`. Il faut soit une version patchee d'`iw`, soit un outil custom utilisant libnl pour envoyer `NL80211_CMD_FRAME`. Le patch cfg80211 cote kernel EST en place et fonctionnel.
+> **Recommandation** : pour une injection deauth fiable (handshake capture), utiliser un **adaptateur USB WiFi externe** (Alfa AWUS036AXML, MT7921AU) avec airmon-ng + aireplay-ng standard. L'adaptateur externe supporte nativement le monitor mode et l'injection sans les limitations du firmware MTK interne.
 
 ---
 
@@ -132,13 +140,17 @@ iw dev wlan0 mgmt tx 4000<dur><bcast><our_mac><bcast><seq><ssid_ie> 5200
 
 | Capacite | Statut | Methode |
 |----------|--------|---------|
-| Scan passif (beacons) | Fonctionnel | ICS capture + parseur 802.11 |
-| Capture data unicast (notre device) | Fonctionnel | ICS T1 trampoline |
-| Capture data unicast (AUTRES devices) | Fonctionnel | Mode promiscuous (T2, fw cmd 10) |
-| Capture EAPOL / 4-way handshake | Fonctionnel | Mode promiscuous + ICS |
-| Capture control frames (RTS/CTS/ACK) | Fonctionnel | ICS capture |
-| Injection deauth | Fonctionnel | AP_STA_DISASSOC (T4 NOP) |
-| Injection raw management frames | Pret cote kernel | cfg80211 patche, attend outil libnl |
+| Scan passif (beacons) | **Fonctionnel** | ICS capture + parseur 802.11 |
+| Capture data unicast (notre device) | **Fonctionnel** | ICS T1 trampoline |
+| Capture data unicast (AUTRES devices) | **Fonctionnel** | Mode promiscuous (T2, fw cmd 10) |
+| Capture control frames (RTS/CTS/ACK) | **Fonctionnel** | ICS capture |
+| Capture management (Auth/Deauth/Disassoc) | **Fonctionnel** | ICS capture (2.5 MB/60s observe) |
+| Capture EAPOL / 4-way handshake | **Non verifie** | Necessite deauth fiable pour forcer reconnexion |
+| Injection deauth (connecte) | **Fonctionnel** | AP_STA_DISASSOC (T4 NOP) |
+| Injection deauth (non connecte) | **Non fiable (~0.4%)** | nl80211 CMD_FRAME + D2/D3 patches — firmware drop |
+| Injection raw management frames | **Non fiable** | cfg80211 patche mais firmware filtre TX |
+| Channel lock (offchannel) | **Fonctionnel 2.4GHz** | `iw offchannel 2452 5000` |
+| Channel lock (offchannel 5GHz) | **Non supporte** | `iw offchannel 5200` → Invalid argument |
 | Channel hopping | Non implemente | Faisable via SET_TEST_CMD 1 <freq> |
 | Injection data frames | Non supporte | Le driver n'a pas de raw data TX |
 
@@ -173,8 +185,13 @@ Timesync : quand `Info == 0x0008011000000000` → 24 bytes total, pas de frame.
 | T3 | Trampoline | 48 B | `nicRxDisablePromiscuousMode` → fw cmd 10 (0x01) | Mode promiscuous OFF |
 | T4 | NOP | 4 B | `priv_driver_set_ap_sta_disassoc` role check | Deauth en mode STA |
 | **D1** | **Data patch** | **2 B** | **`priv_cmd_handlers` dispatch table, entree SNIFFER** | **Active la commande SNIFFER (flag enable + permission level)** |
+| **D2** | **Branch patch** | **4 B** | **`mtk_cfg_mgmt_tx` check `wdev->current_bss`** | **Bypass association check pour TX sans BSS (nl80211 CMD_FRAME)** |
+| **D3a** | **NOP call** | **4 B** | **`_mtk_cfg80211_mgmt_tx` 1er appel `wlanGetBssIdx`** | **Force BssIdx=0 pour TX sans association** |
+| **D3b** | **NOP call** | **4 B** | **`_mtk_cfg80211_mgmt_tx` 2eme appel `wlanGetBssIdx`** | **Force BssIdx=0 pour TX sans association** |
 
-Total : 154 bytes modifies dans un .ko de 7 MB.
+Total : 166 bytes modifies dans un .ko de 7 MB.
+
+> **Note sur D2/D3** : ces patches contournent les checks du driver mais le firmware MTK conserve son propre filtre TX. Le taux d'injection effectif est ~0.4% (1 frame sur 240). L'injection deauth fiable necessite une association BSS active ou un adaptateur USB externe.
 
 #### Detail du patch D1 (v5)
 
@@ -390,9 +407,10 @@ wifi-cracker/core/.../wifi/
 |---------|--------------------|
 | wlan driver original | `1b3a2244bd257...` |
 | wlan driver patche v4 | `1551f37b6b388...` |
-| **wlan driver patche v5** | **`27f66957098538...`** |
+| wlan driver patche v5 (D1) | `27f66957098538...` |
+| **wlan driver patche v7 (D1+D2+D3)** | **`481c139366ddd1...`** |
 | cfg80211 original | `7f0bca381fed2...` |
-| cfg80211 patche v4/v5 | `6313f82e09073...` |
+| cfg80211 patche v4-v7 | `6313f82e09073...` |
 
 ---
 
@@ -412,6 +430,12 @@ wifi-cracker/core/.../wifi/
 12. **v5 : decouverte SELinux block sur wpa_supplicant → wpa_cli socket**
 13. **v5 : decouverte ICS ioctls attendent des entiers bruts, pas des pointeurs**
 14. Validation v5 : `IcsLog[Lv:OnOff]=[2:1]`, paquets captures confirmes
+15. Construction outil `deauth_inject` (libnl, NL80211_CMD_FRAME) pour injection sans association
+16. **v7 : patch D2 bypass current_bss check dans mtk_cfg_mgmt_tx (1 branch, 4 bytes)**
+17. **v7 : patch D3a+D3b force BssIdx=0 dans _mtk_cfg80211_mgmt_tx (2 NOP calls, 8 bytes)**
+18. Test injection v7 : kernel accepte les frames mais firmware drop ~99.6% sans association BSS
+19. Validation capture passive v7 : 2.5 MB / 7919 paquets en 60s, management + data frames promiscuous
+20. Conclusion : injection deauth fiable necessite association BSS ou adaptateur USB externe
 
 ---
 
