@@ -113,7 +113,7 @@ class MtkMonitorCapture(
                         }
                     }
 
-                    offset = nextOffset + 16
+                    offset = IcsPacketParser.nextPacketOffset(nextOffset)
                 }
 
                 if (offset < bufferPos) {

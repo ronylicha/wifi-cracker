@@ -6,6 +6,7 @@ import java.nio.ByteOrder
 const val ICS_MAGIC = 0x44d9c99aL
 const val TIMESYNC_INFO = 0x0008011000000000L
 const val MTK_RX_DESC_SIZE = 120
+const val ICS_FIXED_PKT_SIZE = 320
 
 data class IcsPacket(
     val sequence: Int,
@@ -82,13 +83,14 @@ object IcsPacketParser {
         if (frameLength == 0 || frameLength > 4096) return null
 
         val headerSize = 16
-        val frameDataStart = offset + headerSize
-        val frameDataEnd = frameDataStart + MTK_RX_DESC_SIZE
+        val frameDataStart = offset + headerSize + MTK_RX_DESC_SIZE
+        // frameLength in ICS header INCLUDES the RX descriptor — real frame is smaller
+        val realFrameLength = minOf(frameLength - MTK_RX_DESC_SIZE, ICS_FIXED_PKT_SIZE - headerSize - MTK_RX_DESC_SIZE)
 
-        if (frameDataEnd + frameLength > buffer.size) return null
+        if (realFrameLength <= 0 || frameDataStart + realFrameLength > buffer.size) return null
 
-        val rawFrame = ByteArray(frameLength)
-        System.arraycopy(buffer, frameDataEnd, rawFrame, 0, frameLength)
+        val rawFrame = ByteArray(realFrameLength)
+        System.arraycopy(buffer, frameDataStart, rawFrame, 0, realFrameLength)
 
         return IcsPacket(
             sequence = seq,
@@ -99,22 +101,21 @@ object IcsPacketParser {
     }
 
     fun findNextPacketOffset(buffer: ByteArray, offset: Int): Int? {
+        // ICS packets are fixed 320 bytes — try aligned first, then scan
         var current = offset
-        while (current + 4 <= buffer.size) {
+        while (current + ICS_FIXED_PKT_SIZE <= buffer.size) {
             val magic = ByteBuffer.wrap(buffer, current, 4)
                 .order(ByteOrder.LITTLE_ENDIAN)
                 .int
                 .toLong() and 0xFFFFFFFFL
 
-            if (magic == ICS_MAGIC) {
-                val seq = ByteBuffer.wrap(buffer, current + 6, 2)
-                    .order(ByteOrder.LITTLE_ENDIAN)
-                    .short
-                    .toInt()
-                if (seq >= 0) return current
-            }
+            if (magic == ICS_MAGIC) return current
+            // If not aligned, scan byte-by-byte until we find the next magic
             current++
         }
         return null
     }
+
+    /** Advance to next packet (fixed 320-byte size). */
+    fun nextPacketOffset(currentOffset: Int): Int = currentOffset + ICS_FIXED_PKT_SIZE
 }
