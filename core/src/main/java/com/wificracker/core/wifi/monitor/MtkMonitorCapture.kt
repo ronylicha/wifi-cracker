@@ -23,18 +23,25 @@ class MtkMonitorCapture(
     suspend fun enableCapture(): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Step 1: Send SNIFFER command via wpa_driver binary
-                val snifferResult = shellExecutor.executeAsRoot(
-                    "/data/local/tmp/wpa_driver \"SNIFFER 2 0 0 0 0 0 0 0 0 0\""
+                // Step 0: SELinux must be permissive for wpa_supplicant socket communication
+                shellExecutor.executeAsRoot("setenforce 0")
+
+                // Step 1: Send SNIFFER command via wpa_cli (uses dispatch table entry D1)
+                // Returns FAIL but fw cmd 0x93 is still sent — this is expected behavior
+                shellExecutor.executeAsRoot(
+                    "wpa_cli -p /data/vendor/wifi/wpa/sockets -i wlan0 driver \"SNIFFER 2 0 0 0 0 0 0 0 0 0\" || true",
+                    timeoutSeconds = 15,
                 )
 
-                // Step 2: Enable ICS via ics_enable binary
+                // Step 2: Enable ICS via ics_enable with raw integer args
+                // SET_LEVEL=2 (capture all), ON_OFF=1 (enable)
+                // Expected result: IcsLog[Lv:OnOff]=[2:1]
                 val icsResult = shellExecutor.executeAsRoot(
-                    "/data/local/tmp/ics_enable 1"
+                    "/data/local/tmp/wificracker/ics_enable 2 1",
                 )
 
                 if (!icsResult.isSuccess) {
-                    auditLogger.log(AuditEntry(action = "MTK_CAPTURE_ENABLE_FAILED", module = "MtkMonitorCapture", result = "FAIL", details = icsResult.stderr))
+                    auditLogger.log(AuditEntry(action = "ICS_ENABLE_FAILED", module = "MtkMonitorCapture", result = "FAIL", details = icsResult.stderr))
                     return@withContext false
                 }
 
@@ -51,7 +58,8 @@ class MtkMonitorCapture(
         return withContext(Dispatchers.IO) {
             try {
                 stopCapture()
-                shellExecutor.executeAsRoot("/data/local/tmp/ics_enable 0")
+                // SET_LEVEL=0, ON_OFF=0
+                shellExecutor.executeAsRoot("/data/local/tmp/wificracker/ics_enable 0 0")
                 auditLogger.log(AuditEntry(action = "MTK_CAPTURE_DISABLED", module = "MtkMonitorCapture", result = "SUCCESS"))
                 true
             } catch (e: Exception) {

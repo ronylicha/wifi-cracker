@@ -57,16 +57,21 @@ class ChipsetMonitorHelper @Inject constructor(
         val mtk = shellExecutor.executeAsRoot("getprop ro.vendor.wlan.gen").stdout.trim()
         if (mtk.isNotBlank()) {
             val patchCheck = shellExecutor.executeAsRoot("sha256sum /vendor/lib/modules/wlan_drv_gen4m_6878.ko")
-            val isPatched = patchCheck.stdout.contains("1551f37b6b3882505a9a30229aa6f768d8b01589d5c3e3366e1c653f43d66d48")
-            // Check cfg80211 patch (v4: raw TX support)
+            val driverHash = patchCheck.stdout.take(64)
+            val isV5 = driverHash.startsWith("27f6695709853893")
+            val isV4 = driverHash.startsWith("1551f37b6b388250")
+            val isPatched = isV5 || isV4
+            // Check cfg80211 patch (raw TX support)
             val cfg80211Check = shellExecutor.executeAsRoot("sha256sum /vendor/lib/modules/cfg80211.ko")
             val hasCfg80211Patch = cfg80211Check.stdout.contains("6313f82e09073087")
             val version = when {
-                isPatched && hasCfg80211Patch -> 4
+                isV5 && hasCfg80211Patch -> 5
+                isV4 && hasCfg80211Patch -> 4
                 isPatched -> 3
                 else -> 0
             }
             val method = when (version) {
+                5 -> "MTK ICS + promiscuous + deauth + raw TX + dispatch fix (v5)"
                 4 -> "MTK ICS + promiscuous + deauth + raw TX (v4)"
                 3 -> "MTK ICS + promiscuous + deauth (v3)"
                 else -> "Not supported (firmware locked)"
@@ -161,17 +166,18 @@ class ChipsetMonitorHelper @Inject constructor(
         if (!capability.patchInstalled) {
             return ShellResult(-1, "", "MediaTek monitor mode requires the patched driver. Install the mtk_wifi_monitor Magisk module and reboot.")
         }
-        // MTK patched driver: SNIFFER command + ICS enable
+        // v5 sequence: SELinux permissive → SNIFFER → ICS SET_LEVEL(2) → ICS ON_OFF(1)
         val steps = listOf(
-            "/data/local/tmp/wpa_driver \"SNIFFER 2 0 0 0 0 0 0 0 0 0\"",
-            "/data/local/tmp/ics_enable 1",
+            "setenforce 0",
+            "wpa_cli -p /data/vendor/wifi/wpa/sockets -i $interfaceName driver \"SNIFFER 2 0 0 0 0 0 0 0 0 0\" || true",
+            "/data/local/tmp/wificracker/ics_enable 2 1",
         )
         return executeSteps(steps)
     }
 
     private fun disableMediatekMonitor(interfaceName: String): ShellResult {
         val steps = listOf(
-            "/data/local/tmp/ics_enable 0",
+            "/data/local/tmp/wificracker/ics_enable 0 0",
         )
         return executeSteps(steps)
     }
