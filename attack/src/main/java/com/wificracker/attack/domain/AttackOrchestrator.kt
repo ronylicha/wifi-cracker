@@ -22,6 +22,7 @@ class AttackOrchestrator @Inject constructor(
     private val pmkidCapture: PmkidCapture,
     private val evilTwinAttack: EvilTwinAttack,
     private val probeSniff: ProbeSniff,
+    private val autoAttack: AutoAttack,
     private val prerequisiteCheck: PrerequisiteCheck,
     private val auditLogger: AuditLogger,
     private val sessionCollector: SessionCollector,
@@ -35,6 +36,7 @@ class AttackOrchestrator @Inject constructor(
     private var attackJob: Job? = null
 
     fun getAttackImpl(type: AttackType): WifiAttack = when (type) {
+        AttackType.AUTO_ATTACK -> autoAttack
         AttackType.DEAUTH -> deauthAttack
         AttackType.HANDSHAKE_CAPTURE -> handshakeCapture
         AttackType.PMKID_CAPTURE -> pmkidCapture

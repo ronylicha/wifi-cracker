@@ -36,6 +36,7 @@ class PrerequisiteCheck @Inject constructor(
             }
 
             val requiredBinaries = when (attackType) {
+                AttackType.AUTO_ATTACK -> listOf("airodump-ng", "aireplay-ng", "hcxdumptool", "aircrack-ng")
                 AttackType.DEAUTH -> listOf("aireplay-ng")
                 AttackType.HANDSHAKE_CAPTURE -> listOf("airodump-ng")
                 AttackType.PMKID_CAPTURE -> listOf("hcxdumptool")
@@ -49,10 +50,12 @@ class PrerequisiteCheck @Inject constructor(
         } else {
             // MTK patched: just need wpa_driver and ics_enable
             when (attackType) {
-                AttackType.DEAUTH, AttackType.HANDSHAKE_CAPTURE -> {
-                    if (!binaryInstaller.isBinaryInstalled("wpa_driver") &&
-                        !java.io.File("/data/local/tmp/wpa_driver").exists()) {
-                        missing.add("wpa_driver binary not found in /data/local/tmp/")
+                AttackType.AUTO_ATTACK, AttackType.DEAUTH, AttackType.HANDSHAKE_CAPTURE, AttackType.PMKID_CAPTURE -> {
+                    if (!binaryInstaller.isBinaryInstalled("sniffer_direct")) {
+                        missing.add("sniffer_direct binary not found")
+                    }
+                    if (!binaryInstaller.isBinaryInstalled("ics_enable")) {
+                        missing.add("ics_enable binary not found")
                     }
                 }
                 AttackType.EVIL_TWIN -> {
