@@ -85,14 +85,16 @@ WiFi Cracker **auto-detects** your chipset and uses the appropriate method:
 
 ### MediaTek Patched Driver (Unihertz Titan 2 / MT6878)
 
-We developed a **custom kernel driver patch** (v4) that enables WiFi monitor mode on MediaTek Dimensity 7300 (MT6878) devices. The patch modifies two kernel modules via a Magisk module:
+We developed a **custom kernel driver patch** (v5) that enables WiFi monitor mode on MediaTek Dimensity 7300 (MT6878) devices. The patch modifies two kernel modules via a Magisk module:
 
 | Module | Patches | Size | Purpose |
 |--------|---------|------|---------|
-| `wlan_drv_gen4m_6878.ko` (7 MB) | 4 ARM64 trampolines | 152 bytes | ICS sniffer enable, promiscuous RX, deauth TX |
+| `wlan_drv_gen4m_6878.ko` (7 MB) | 4 trampolines + 1 data patch | 154 bytes | ICS sniffer enable, promiscuous RX, deauth TX, **dispatch table fix** |
 | `cfg80211.ko` (2 MB) | 3 NOP patches | 12 bytes | Allow raw 802.11 management frame TX in STA mode |
 
-**How it works:** The firmware command `SNIFFER 2 0 0 0 0 0 0 0 0 0` enables ICS (Internal Capture Service) logging. Raw 802.11 frames (with MTK RX descriptors) are read from `/dev/fw_log_ics`. Deauthentication is sent via `AP_STA_DISASSOC` with the role check patched out.
+**How it works:** The SNIFFER command (via `wpa_cli`) triggers firmware command 0x93 (SET_ICS_SNIFFER). The ICS ioctl (`SET_LEVEL=2`, `ON_OFF=1`) activates packet capture. Raw 802.11 frames are read from `/dev/fw_log_ics`. Deauthentication is sent via `AP_STA_DISASSOC`.
+
+**v5 fixes** (over v4): dispatch table SNIFFER entry was disabled by MediaTek (`enable_flag=0`), SELinux blocks wpa_supplicant responses, ICS ioctls require raw integers not pointers. See [MTK Monitor Mode Guide](docs/MTK_MONITOR_MODE_GUIDE.md) for details.
 
 **Quick install:**
 ```bash
@@ -100,9 +102,12 @@ We developed a **custom kernel driver patch** (v4) that enables WiFi monitor mod
 adb push firmware-dump/mtk_wifi_monitor_magisk.zip /data/local/tmp/
 adb shell "su -c 'magisk --install-module /data/local/tmp/mtk_wifi_monitor_magisk.zip'"
 adb reboot
+
+# Required before each session (SELinux fix pending)
+adb shell "su -c 'setenforce 0'"
 ```
 
-The app auto-detects the patch version by SHA256 hash of the loaded kernel modules and adapts its behavior accordingly (v0/v3/v4).
+The app auto-detects the patch version by SHA256 hash of the loaded kernel modules and adapts its behavior accordingly.
 
 **Documentation:**
 - [MTK Monitor Mode Guide](docs/MTK_MONITOR_MODE_GUIDE.md) — Installation, patch architecture, firmware commands
