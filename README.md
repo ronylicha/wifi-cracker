@@ -110,62 +110,26 @@ The app auto-detects the patch version by SHA256 hash of the loaded kernel modul
 
 **Tested on:** Unihertz Titan 2 (MT6878, Android 16, WiFi co-processor MT6631) — 981 packets captured in 5 seconds.
 
-## Pentest Tools (Modules)
+## Pentest Tools
 
-### Bundled Binaries (Auto-installed)
+**All 12 pentest tools are bundled directly in the APK** and auto-installed on first launch to `/data/local/tmp/wificracker/`. No Termux, no downloads, no manual setup.
 
-The core aircrack-ng suite is **bundled directly in the APK** under `core/src/main/assets/binaries/`. On first launch, the app automatically extracts and installs them to `/data/local/tmp/wificracker/`:
+| Binary | Size | Purpose |
+|--------|------|---------|
+| aircrack-ng | 171 KB | WiFi password cracking suite |
+| airodump-ng | 118 KB | Network scanning and packet capture |
+| aireplay-ng | 104 KB | Deauthentication and packet injection |
+| airmon-ng | 53 KB | Monitor mode management |
+| hcxdumptool | 1.2 MB | PMKID capture without connected clients |
+| hcxpcapngtool | 4.7 MB | Convert .cap to .hc22000 hash format |
+| hashcat | 771 KB | Advanced password recovery |
+| hostapd | 1.5 MB | Rogue access point (Evil Twin) |
+| dnsmasq | 200 KB | DHCP/DNS server for Evil Twin |
+| iw | 1.2 MB | Wireless interface configuration |
+| wpa_driver | 584 KB | MediaTek sniffer firmware command |
+| ics_enable | 584 KB | MediaTek ICS capture toggle |
 
-| Binary | Bundled | Purpose |
-|--------|:-------:|---------|
-| aircrack-ng | Yes | WiFi password cracking |
-| airodump-ng | Yes | Network scanning and packet capture |
-| aireplay-ng | Yes | Deauthentication and packet injection |
-| airmon-ng | Yes | Monitor mode management |
-
-No setup required — these are ready to use immediately after installation.
-
-### Additional Tools (Modules Screen)
-
-Additional tools for advanced attacks can be installed via **Drawer > Modules**. The Modules screen shows the status of all 11 tracked binaries and provides multiple installation methods (tried in this order):
-
-1. **Termux** — copies from `/data/data/com.termux/files/usr/bin/`
-2. **Kali Nethunter** — copies from `/data/local/nhsystem/kali-arm64/usr/bin/`
-3. **Download** — fetches pre-compiled ARM64 binaries from community repositories
-4. **System PATH** — detects already-installed binaries
-
-| Binary | Source | Purpose |
-|--------|--------|---------|
-| hcxdumptool | Termux/download | PMKID capture without connected clients |
-| hcxpcapngtool | Termux/download | Convert .cap to .hc22000 hash format |
-| hashcat | Termux/download | Advanced password recovery (GPU-accelerated) |
-| hostapd | Termux/download | Rogue access point (Evil Twin) |
-| dnsmasq | Termux/download | DHCP/DNS server for Evil Twin |
-| iw | Termux/download | Wireless interface configuration |
-
-**Quick setup via Termux** (installs all missing tools at once):
-```bash
-pkg update && pkg install -y hcxdumptool hcxtools hashcat hostapd dnsmasq iw
-```
-Then tap **"Install all missing modules"** in the Modules screen.
-
-### MediaTek-Specific Tools
-
-For devices using the patched MediaTek driver, two additional binaries are required. These are **included in the Magisk module** (`mtk_wifi_monitor_magisk.zip`) and installed automatically at `/data/local/tmp/`:
-
-| Binary | Included in | Purpose |
-|--------|-------------|---------|
-| wpa_driver | Magisk module | Sends SNIFFER firmware command to the MTK driver |
-| ics_enable | Magisk module | Toggles ICS (Internal Capture Service) on `/dev/fw_log_ics` |
-
-If you need to compile them manually from source:
-```bash
-NDK_CC="$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang"
-$NDK_CC -static -o wpa_driver firmware-dump/wpa_driver.c
-$NDK_CC -static -o ics_enable firmware-dump/ics_enable.c
-adb push wpa_driver ics_enable /data/local/tmp/
-adb shell "su -c 'chmod 755 /data/local/tmp/wpa_driver /data/local/tmp/ics_enable'"
-```
+All binaries are statically compiled for ARM64 (aarch64) and cross-compiled from source using `aarch64-linux-gnu-gcc`.
 
 ## Tech Stack
 

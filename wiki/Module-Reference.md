@@ -366,7 +366,7 @@ Shared services used by all other modules:
 | `ShellExecutor` | Execute shell commands as root, return `ShellResult(exitCode, stdout, stderr)` |
 | `RootChecker` | Detect root access (Magisk / KernelSU / SuperSU) |
 | `AuditLogger` | Append-only JSONL audit log with mutex-protected writes |
-| `BinaryInstaller` | Locate and install ARM64 binaries from Termux or NetHunter |
+| `BinaryInstaller` | Extract and install bundled ARM64 binaries from APK assets on first launch |
 | `PentestForegroundService` | Android foreground service keeping the process alive during long operations |
 | `ChipsetMonitorHelper` | Detect WiFi chipset vendor and enable/disable monitor mode accordingly |
 | `MonitorModeManager` | High-level `@Singleton` wrapping `ChipsetMonitorHelper` |

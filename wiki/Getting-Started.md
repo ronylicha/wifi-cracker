@@ -30,7 +30,7 @@ This page covers everything needed to build WiFi Cracker from source, install it
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/wifi-cracker.git
+git clone https://github.com/ronylicha/wifi-cracker.git
 cd wifi-cracker
 
 # Debug build
@@ -50,65 +50,26 @@ The debug APK is output to `app/build/outputs/apk/debug/app-debug.apk`.
 
 ---
 
-## Installing Pentest Tools
+## Pentest Tools
 
-WiFi Cracker delegates scanning, attacking, and cracking to external ARM64 binaries (aircrack-ng, hashcat, and others). These must be installed before any module can run. The application includes a **Modules** screen that checks which tools are present and guides you through installation.
+**All 12 pentest tools are bundled directly in the APK.** On first launch, WiFi Cracker automatically extracts and installs them to `/data/local/tmp/wificracker/`. No Termux, no downloads, no manual setup required.
 
-Navigate to: **Drawer menu > Modules**
+| Binary | Purpose |
+|--------|---------|
+| `aircrack-ng` | Password cracking from handshake files |
+| `airodump-ng` | Network scanner and packet capture |
+| `aireplay-ng` | Deauthentication and packet injection |
+| `airmon-ng` | Monitor mode management |
+| `hcxdumptool` | PMKID capture without connected clients |
+| `hcxpcapngtool` | Convert `.cap` to `.hc22000` hash format |
+| `hashcat` | Advanced password recovery |
+| `hostapd` | Rogue access point for Evil Twin attacks |
+| `dnsmasq` | DHCP/DNS server for Evil Twin |
+| `iw` | Wireless interface configuration |
+| `wpa_driver` | MediaTek sniffer firmware command |
+| `ics_enable` | MediaTek ICS capture toggle |
 
-### Method 1 — Via Termux (Recommended)
-
-1. Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/). Do not use the Play Store version — it is outdated and cannot install packages.
-
-2. Open Termux and run:
-
-```bash
-pkg update && pkg install -y aircrack-ng hcxdumptool hcxtools hashcat hostapd dnsmasq iw
-```
-
-3. Open WiFi Cracker, go to **Drawer > Modules**, and tap **Install all missing modules**. The app copies the binaries from Termux to its working directory at `/data/local/tmp/wificracker/`.
-
-### Method 2 — Via Kali NetHunter
-
-If Kali NetHunter is installed on the device:
-
-1. The required tools are already available inside the NetHunter chroot at `/data/local/nhsystem/kali-arm64/usr/bin/`.
-2. Go to **Drawer > Modules** and tap **Install all missing modules**. The app detects and copies from the NetHunter chroot automatically.
-
-### Method 3 — Automatic Download
-
-If neither Termux nor NetHunter is installed, the Modules screen will attempt to download pre-compiled ARM64 binaries from community repositories using `curl`. This requires an active internet connection.
-
-### Method 4 — Manual via ADB
-
-Push pre-compiled ARM64 binaries directly from a PC:
-
-```bash
-adb push aircrack-ng /data/local/tmp/wificracker/
-adb push airodump-ng /data/local/tmp/wificracker/
-adb push aireplay-ng /data/local/tmp/wificracker/
-adb push hcxdumptool /data/local/tmp/wificracker/
-adb push hcxpcapngtool /data/local/tmp/wificracker/
-adb push hashcat /data/local/tmp/wificracker/
-adb push hostapd /data/local/tmp/wificracker/
-adb push dnsmasq /data/local/tmp/wificracker/
-adb push iw /data/local/tmp/wificracker/
-adb shell "su -c 'chmod 755 /data/local/tmp/wificracker/*'"
-```
-
-### Required Binaries Summary
-
-| Binary | Source Package | Purpose |
-|--------|---------------|---------|
-| `aircrack-ng` | aircrack-ng | Password cracking from handshake files |
-| `airodump-ng` | aircrack-ng | Network scanner and packet capture |
-| `aireplay-ng` | aircrack-ng | Deauthentication and packet injection |
-| `hcxdumptool` | hcxdumptool | PMKID capture without connected clients |
-| `hcxpcapngtool` | hcxtools | Convert `.cap` to `.hc22000` hash format |
-| `hashcat` | hashcat | Advanced password recovery |
-| `hostapd` | hostapd | Rogue access point for Evil Twin attacks |
-| `dnsmasq` | dnsmasq | DHCP/DNS server for Evil Twin |
-| `iw` | iw | Wireless interface configuration |
+All binaries are statically compiled for ARM64 (aarch64) and cross-compiled from source.
 
 ---
 
@@ -191,7 +152,7 @@ adb shell "su -c 'rm -rf /data/adb/modules/mtk_wifi_monitor && reboot'"
 
 2. If root access is not detected, a **Root Error** screen is shown. Grant root permissions via your root manager and relaunch.
 
-3. Navigate to **Drawer > Modules** and verify all required tools are installed (green checkmarks). Install any missing ones before proceeding.
+3. All 12 pentest tools are automatically installed on first launch. No manual action required.
 
 4. Navigate to **Drawer > Settings** to configure:
    - Theme (dark/light)

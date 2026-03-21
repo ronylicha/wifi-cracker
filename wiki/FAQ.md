@@ -134,15 +134,9 @@ adb shell "su -c '/data/local/tmp/wpa_driver \"SET_TEST_MODE 0\"'"  # Restore
 
 ## Tools and Modules
 
-### The Modules screen shows all tools as missing after a fresh install.
+### Are all pentest tools included in the APK?
 
-This is expected. WiFi Cracker does not bundle the pentest binaries in the APK. You must install them via Termux, NetHunter, or the automatic download option. Go to **Drawer > Modules** and follow the instructions on screen.
-
----
-
-### Termux package installation fails with "repository not found" errors.
-
-The Termux version on the Play Store is outdated and cannot install packages. Install Termux from [F-Droid](https://f-droid.org/packages/com.termux/) instead, then run `pkg update` before installing packages.
+Yes. All 12 ARM64 binaries (aircrack-ng, hashcat, hcxdumptool, hostapd, dnsmasq, iw, etc.) are bundled directly in the APK and auto-installed on first launch to `/data/local/tmp/wificracker/`. No Termux, no downloads, no manual setup required.
 
 ---
 

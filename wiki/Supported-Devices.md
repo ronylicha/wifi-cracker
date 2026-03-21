@@ -14,7 +14,7 @@ On launch, the `ChipsetMonitorHelper` probes the device in sequence:
 2. Checks for `/sys/module/bcmdhd*/parameters/` or `/sys/module/dhd/parameters/` — indicates a Broadcom driver.
 3. Checks the `ro.vendor.wlan.gen` system property — indicates a MediaTek driver. Verifies the SHA-256 hash of the loaded `.ko` file to determine whether the patch is installed.
 
-The result is displayed on the Modules screen and in the scan interface.
+The result is displayed in the scan interface.
 
 ### Chipset Support Table
 
