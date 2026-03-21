@@ -85,92 +85,81 @@ WiFi Cracker **auto-detects** your chipset and uses the appropriate method:
 
 ### MediaTek Patched Driver (Unihertz Titan 2 / MT6878)
 
-We developed a **custom kernel driver patch** that enables WiFi monitor mode on MediaTek Dimensity 7300 (MT6878) devices. The patch injects 52 bytes of ARM64 trampoline code into the RX path to redirect captured frames to `/dev/fw_log_ics`.
+We developed a **custom kernel driver patch** (v4) that enables WiFi monitor mode on MediaTek Dimensity 7300 (MT6878) devices. The patch modifies two kernel modules via a Magisk module:
+
+| Module | Patches | Size | Purpose |
+|--------|---------|------|---------|
+| `wlan_drv_gen4m_6878.ko` (7 MB) | 4 ARM64 trampolines | 152 bytes | ICS sniffer enable, promiscuous RX, deauth TX |
+| `cfg80211.ko` (2 MB) | 3 NOP patches | 12 bytes | Allow raw 802.11 management frame TX in STA mode |
+
+**How it works:** The firmware command `SNIFFER 2 0 0 0 0 0 0 0 0 0` enables ICS (Internal Capture Service) logging. Raw 802.11 frames (with MTK RX descriptors) are read from `/dev/fw_log_ics`. Deauthentication is sent via `AP_STA_DISASSOC` with the role check patched out.
 
 **Quick install:**
 ```bash
-# Install Magisk module
+# Install Magisk module (includes patched .ko + wpa_driver + ics_enable)
 adb push firmware-dump/mtk_wifi_monitor_magisk.zip /data/local/tmp/
 adb shell "su -c 'magisk --install-module /data/local/tmp/mtk_wifi_monitor_magisk.zip'"
 adb reboot
 ```
 
+The app auto-detects the patch version by SHA256 hash of the loaded kernel modules and adapts its behavior accordingly (v0/v3/v4).
+
 **Documentation:**
-- [MTK Monitor Mode Guide](docs/MTK_MONITOR_MODE_GUIDE.md) — Installation, usage, and technical details
-- [Firmware Analysis](docs/FIRMWARE_ANALYSIS.md) — Complete reverse engineering analysis
+- [MTK Monitor Mode Guide](docs/MTK_MONITOR_MODE_GUIDE.md) — Installation, patch architecture, firmware commands
+- [Firmware Analysis](docs/FIRMWARE_ANALYSIS.md) — Complete reverse engineering of MT6631 WiFi co-processor (NDS32)
 
-**Tested on:** Unihertz Titan 2 (MT6878, Android 16) — 981 packets captured in 5 seconds.
+**Tested on:** Unihertz Titan 2 (MT6878, Android 16, WiFi co-processor MT6631) — 981 packets captured in 5 seconds.
 
-## Installing Pentest Tools (Modules)
+## Pentest Tools (Modules)
 
-WiFi Cracker requires external ARM64 binaries for scanning, attacking, and cracking. The app includes a **Modules** screen (Drawer > Modules) that checks which tools are installed and installs missing ones automatically.
+### Bundled Binaries (Auto-installed)
 
-### Required Tools
+The core aircrack-ng suite is **bundled directly in the APK** under `core/src/main/assets/binaries/`. On first launch, the app automatically extracts and installs them to `/data/local/tmp/wificracker/`:
 
-| Binary | Package | Purpose |
-|--------|---------|---------|
-| aircrack-ng | aircrack-ng | WiFi password cracking suite |
-| airodump-ng | aircrack-ng | WiFi network scanner and packet capture |
-| aireplay-ng | aircrack-ng | Deauthentication and packet injection |
-| hcxdumptool | hcxdumptool | PMKID capture without connected clients |
-| hcxpcapngtool | hcxtools | Convert .cap to .hc22000 hash format |
-| hashcat | hashcat | Advanced password recovery |
-| hostapd | hostapd | Rogue access point (Evil Twin) |
-| dnsmasq | dnsmasq | DHCP/DNS server for Evil Twin |
-| iw | iw | Wireless interface configuration |
+| Binary | Bundled | Purpose |
+|--------|:-------:|---------|
+| aircrack-ng | Yes | WiFi password cracking |
+| airodump-ng | Yes | Network scanning and packet capture |
+| aireplay-ng | Yes | Deauthentication and packet injection |
+| airmon-ng | Yes | Monitor mode management |
 
-### Method 1: Via Termux (Recommended)
+No setup required — these are ready to use immediately after installation.
 
-The easiest way to get all tools:
+### Additional Tools (Modules Screen)
 
-1. **Install Termux** from [F-Droid](https://f-droid.org/packages/com.termux/) (NOT from Play Store — the Play Store version is outdated and broken)
+Additional tools for advanced attacks can be installed via **Drawer > Modules**. The Modules screen shows the status of all 11 tracked binaries and provides multiple installation methods (tried in this order):
 
-2. **Open Termux** and run:
+1. **Termux** — copies from `/data/data/com.termux/files/usr/bin/`
+2. **Kali Nethunter** — copies from `/data/local/nhsystem/kali-arm64/usr/bin/`
+3. **Download** — fetches pre-compiled ARM64 binaries from community repositories
+4. **System PATH** — detects already-installed binaries
+
+| Binary | Source | Purpose |
+|--------|--------|---------|
+| hcxdumptool | Termux/download | PMKID capture without connected clients |
+| hcxpcapngtool | Termux/download | Convert .cap to .hc22000 hash format |
+| hashcat | Termux/download | Advanced password recovery (GPU-accelerated) |
+| hostapd | Termux/download | Rogue access point (Evil Twin) |
+| dnsmasq | Termux/download | DHCP/DNS server for Evil Twin |
+| iw | Termux/download | Wireless interface configuration |
+
+**Quick setup via Termux** (installs all missing tools at once):
 ```bash
-pkg update && pkg install -y aircrack-ng hcxdumptool hcxtools hashcat hostapd dnsmasq iw
+pkg update && pkg install -y hcxdumptool hcxtools hashcat hostapd dnsmasq iw
 ```
-
-3. **Open WiFi Cracker** > Drawer > **Modules** > tap **"Install all missing modules"**
-
-The app will automatically copy the binaries from Termux to its working directory (`/data/local/tmp/wificracker/`).
-
-### Method 2: Via Kali Nethunter
-
-If you have Kali Nethunter installed:
-
-1. The tools are already available in the chroot at `/data/local/nhsystem/kali-arm64/usr/bin/`
-2. Open WiFi Cracker > Drawer > **Modules** > tap **"Install all missing modules"**
-3. The app will detect and copy from the Nethunter chroot automatically
-
-### Method 3: Automatic Download
-
-If neither Termux nor Nethunter is installed, the Modules screen will attempt to download pre-compiled ARM64 binaries from community repositories via `curl`. This requires an internet connection on the device.
-
-### Method 4: Manual Installation
-
-You can manually push binaries compiled for ARM64 Android:
-
-```bash
-# From your PC, push pre-compiled binaries
-adb push aircrack-ng /data/local/tmp/wificracker/
-adb push airodump-ng /data/local/tmp/wificracker/
-# ... etc
-adb shell "su -c 'chmod 755 /data/local/tmp/wificracker/*'"
-```
+Then tap **"Install all missing modules"** in the Modules screen.
 
 ### MediaTek-Specific Tools
 
-For devices using the patched MediaTek driver (see above), two additional binaries are needed:
+For devices using the patched MediaTek driver, two additional binaries are required. These are **included in the Magisk module** (`mtk_wifi_monitor_magisk.zip`) and installed automatically at `/data/local/tmp/`:
 
-| Binary | Purpose |
-|--------|---------|
-| wpa_driver | Sends SNIFFER command to the MTK driver |
-| ics_enable | Toggles ICS (Internal Capture Service) |
+| Binary | Included in | Purpose |
+|--------|-------------|---------|
+| wpa_driver | Magisk module | Sends SNIFFER firmware command to the MTK driver |
+| ics_enable | Magisk module | Toggles ICS (Internal Capture Service) on `/dev/fw_log_ics` |
 
-These are compiled from the source in `firmware-dump/` using the Android NDK:
-
+If you need to compile them manually from source:
 ```bash
-# Cross-compile from PC
 NDK_CC="$ANDROID_HOME/ndk/27.1.12297006/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android31-clang"
 $NDK_CC -static -o wpa_driver firmware-dump/wpa_driver.c
 $NDK_CC -static -o ics_enable firmware-dump/ics_enable.c
