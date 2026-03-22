@@ -67,4 +67,45 @@ class BinaryInstaller @Inject constructor(private val shellExecutor: ShellExecut
     }
 
     fun getBinaryPath(binaryName: String): String = "$INSTALL_DIR/$binaryName"
+
+    /**
+     * Load mt76/mt7921 kernel modules for USB WiFi adapters (Alfa AWUS036AXML).
+     * Modules are stored in /data/local/tmp/wificracker/ and loaded in dependency order.
+     * Safe to call even without an adapter connected — modules load but stay idle.
+     */
+    fun loadUsbWifiModules(): Boolean {
+        val modules = listOf("mt76.ko", "mt76-usb.ko", "mt76-connac-lib.ko", "mt7921-common.ko", "mt7921u.ko")
+        val firmware = listOf("WIFI_MT7961_patch_mcu_1_2_hdr.bin", "WIFI_RAM_CODE_MT7961_1.bin")
+
+        // Check if mt7921u already loaded
+        val loaded = shellExecutor.executeAsRoot("lsmod | grep mt7921u")
+        if (loaded.stdout.contains("mt7921u")) return true
+
+        // Check if all module files exist
+        val allPresent = modules.all { mod ->
+            shellExecutor.executeAsRoot("test -f $INSTALL_DIR/$mod && echo yes").stdout.contains("yes")
+        }
+        if (!allPresent) return false
+
+        // Install firmware to vendor overlay via Magisk (if not already there)
+        val fwDir = "/data/adb/modules/mt76_usb/system/vendor/firmware/mediatek"
+        shellExecutor.executeAsRoot("mkdir -p $fwDir")
+        for (fw in firmware) {
+            shellExecutor.executeAsRoot("test -f $fwDir/$fw || cp $INSTALL_DIR/$fw $fwDir/$fw 2>/dev/null")
+        }
+
+        // Load modules in order — each depends on the previous
+        for (mod in modules) {
+            val result = shellExecutor.executeAsRoot("insmod $INSTALL_DIR/$mod 2>&1")
+            // Ignore "File exists" (already loaded)
+            if (!result.isSuccess && !result.stderr.contains("File exists")) {
+                // Non-fatal: adapter might not be connected, module loads but has no device
+                continue
+            }
+        }
+
+        // Check if wlan1 appeared (USB adapter detected)
+        val iface = shellExecutor.executeAsRoot("ip link show wlan1 2>/dev/null")
+        return iface.isSuccess
+    }
 }

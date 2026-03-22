@@ -25,6 +25,7 @@ class WifiCrackerApp : Application() {
         }
         applicationScope.launch {
             binaryInstaller.installAllFromAssets(this@WifiCrackerApp)
+            binaryInstaller.loadUsbWifiModules()
         }
     }
 }
