@@ -86,7 +86,10 @@ class BinaryInstaller @Inject constructor(private val shellExecutor: ShellExecut
         )
         if (!usbCheck.stdout.contains("found")) return false
 
-        val modules = listOf("mt76.ko", "mt76-usb.ko", "mt76-connac-lib.ko", "mt7921-common.ko", "mt7921u.ko")
+        // Only load base modules — mt7921-common/mt7921u cause kernel panic
+        // due to modversions CRC mismatch on some symbols.
+        // These will be loaded once CRCs are fully resolved.
+        val modules = listOf("mt76.ko", "mt76-usb.ko", "mt76-connac-lib.ko")
         val firmware = listOf("WIFI_MT7961_patch_mcu_1_2_hdr.bin", "WIFI_RAM_CODE_MT7961_1.bin")
 
         // Check if already loaded
