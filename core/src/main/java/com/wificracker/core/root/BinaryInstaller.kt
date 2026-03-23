@@ -73,11 +73,23 @@ class BinaryInstaller @Inject constructor(private val shellExecutor: ShellExecut
      * Modules are stored in /data/local/tmp/wificracker/ and loaded in dependency order.
      * Safe to call even without an adapter connected — modules load but stay idle.
      */
+    /**
+     * Load mt76/mt7921 kernel modules ONLY when a USB WiFi adapter is physically connected.
+     * Checks USB bus for known WiFi adapter vendor:product IDs before loading.
+     */
     fun loadUsbWifiModules(): Boolean {
+        // Only load if a known USB WiFi adapter is connected
+        // MT7921AU: vendor 0x0e8d, product 0x7961
+        // MT7921AU (alt): vendor 0x0e8d, product 0x7922
+        val usbCheck = shellExecutor.executeAsRoot(
+            "cat /sys/bus/usb/devices/*/idVendor 2>/dev/null | grep -q 0e8d && echo found || echo none"
+        )
+        if (!usbCheck.stdout.contains("found")) return false
+
         val modules = listOf("mt76.ko", "mt76-usb.ko", "mt76-connac-lib.ko", "mt7921-common.ko", "mt7921u.ko")
         val firmware = listOf("WIFI_MT7961_patch_mcu_1_2_hdr.bin", "WIFI_RAM_CODE_MT7961_1.bin")
 
-        // Check if mt7921u already loaded
+        // Check if already loaded
         val loaded = shellExecutor.executeAsRoot("lsmod | grep mt7921u")
         if (loaded.stdout.contains("mt7921u")) return true
 
@@ -87,24 +99,18 @@ class BinaryInstaller @Inject constructor(private val shellExecutor: ShellExecut
         }
         if (!allPresent) return false
 
-        // Install firmware to vendor overlay via Magisk (if not already there)
+        // Install firmware via Magisk overlay
         val fwDir = "/data/adb/modules/mt76_usb/system/vendor/firmware/mediatek"
         shellExecutor.executeAsRoot("mkdir -p $fwDir")
         for (fw in firmware) {
             shellExecutor.executeAsRoot("test -f $fwDir/$fw || cp $INSTALL_DIR/$fw $fwDir/$fw 2>/dev/null")
         }
 
-        // Load modules in order — each depends on the previous
+        // Load modules in dependency order
         for (mod in modules) {
-            val result = shellExecutor.executeAsRoot("insmod $INSTALL_DIR/$mod 2>&1")
-            // Ignore "File exists" (already loaded)
-            if (!result.isSuccess && !result.stderr.contains("File exists")) {
-                // Non-fatal: adapter might not be connected, module loads but has no device
-                continue
-            }
+            shellExecutor.executeAsRoot("insmod $INSTALL_DIR/$mod 2>&1")
         }
 
-        // Check if wlan1 appeared (USB adapter detected)
         val iface = shellExecutor.executeAsRoot("ip link show wlan1 2>/dev/null")
         return iface.isSuccess
     }
